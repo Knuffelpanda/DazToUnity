@@ -1,9 +1,6 @@
-﻿#define USING_HDRP
-#define USING_HARDCODED_RENDERPIPELINE
-
-
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using System;
 
 
@@ -114,41 +111,33 @@ namespace Daz3D
             //////////////////////////////
             // SAVE AND EXIT WHEN BATCHMODE
             //////////////////////////////
-            EditorApplication.SaveScene(EditorApplication.currentScene);
+            EditorSceneManager.SaveOpenScenes();
             EditorApplication.Exit(0);
         }
 
         static void AutoImport()
         {
-#if USING_HDRP || USING_URP || USING_BUILTIN 
-        // check for to_load file
-        if (System.IO.File.Exists("Assets/Daz3D/dtu_toload.txt"))
-        {
-            byte[] byteBuffer = System.IO.File.ReadAllBytes("Assets/Daz3D/dtu_toload.txt");
-            if (byteBuffer != null || byteBuffer.Length > 0)
+            // check for to_load file
+            if (System.IO.File.Exists("Assets/Daz3D/dtu_toload.txt"))
             {
-                string dtuPath = System.Text.Encoding.UTF8.GetString(byteBuffer);
-
-                System.IO.File.Delete("Assets/Daz3D/dtu_toload.txt");
-                System.IO.File.Delete("Assets/Daz3D/dtu_toload.txt.meta");
-
-                if (System.IO.File.Exists(dtuPath))
+                byte[] byteBuffer = System.IO.File.ReadAllBytes("Assets/Daz3D/dtu_toload.txt");
+                if (byteBuffer != null || byteBuffer.Length > 0)
                 {
-                    //Debug.LogError("Found file: [" + dtuPath + "] " + dtuPath.Length);
-                    if (dtuPath.Contains(".dtu"))
+                    string dtuPath = System.Text.Encoding.UTF8.GetString(byteBuffer);
+
+                    System.IO.File.Delete("Assets/Daz3D/dtu_toload.txt");
+                    System.IO.File.Delete("Assets/Daz3D/dtu_toload.txt.meta");
+
+                    if (System.IO.File.Exists(dtuPath))
                     {
-                        var fbxPath = dtuPath.Replace(".dtu", ".fbx");
-                        Daz3DDTUImporter.Import(dtuPath, fbxPath);
+                        if (dtuPath.Contains(".dtu"))
+                        {
+                            var fbxPath = dtuPath.Replace(".dtu", ".fbx");
+                            Daz3DDTUImporter.Import(dtuPath, fbxPath);
+                        }
                     }
                 }
-                else
-                {
-                    //Debug.LogError("File NOT found: [" + dtuPath + "] " + dtuPath.Length);
-                }
             }
-
-        }
-#endif
         }
 
 
@@ -181,24 +170,28 @@ namespace Daz3D
         {
             ObtainInstance();
         }
-        private static void ObtainInstance() 
-        {  
+        private static void ObtainInstance()
+        {
             _instance = (Daz3DBridge)GetWindow(typeof(Daz3DBridge));
-#if USING_HDRP
-            _instance.titleContent = new GUIContent("Daz To Unity: HDRP");
-#elif USING_URP
-            _instance.titleContent = new GUIContent("Daz To Unity: URP");
-#elif USING_BUILTIN 
-            _instance.titleContent = new GUIContent("Daz To Unity: Built-In Rendering");
-#else
-            _instance.titleContent = new GUIContent("Daz To Unity: RenderPipeline Not Detected");
-            CurrentToolbarMode = ToolbarMode.Options;            
-#endif
+            switch (RenderPipelineHelper.CurrentPipeline)
+            {
+                case DazRenderPipeline.HDRP:
+                    _instance.titleContent = new GUIContent("Daz To Unity: HDRP");
+                    break;
+                case DazRenderPipeline.URP:
+                    _instance.titleContent = new GUIContent("Daz To Unity: URP");
+                    break;
+                default:
+                    _instance.titleContent = new GUIContent("Daz To Unity: Built-In Rendering");
+                    break;
+            }
         }
 
         public static void AddDiffusionProfilePrompt()
         {
-#if USING_HDRP
+            if (!RenderPipelineHelper.IsHDRP)
+                return;
+
             if (System.IO.File.Exists("Assets/Daz3D/do_once.cfg"))
             {
                 return;
@@ -206,12 +199,7 @@ namespace Daz3D
             byte[] buffer = { 0 };
             System.IO.File.WriteAllBytes("Assets/Daz3D/do_once.cfg", buffer);
 
-
             string diffusionProfileSettingsPath = "Project/HDRP Default Settings";
-            if (Application.unityVersion.Contains("2019"))
-            {
-                diffusionProfileSettingsPath = "Project/Quality/HDRP";
-            }
 
             EditorWindow settingspanel = UnityEditor.SettingsService.OpenProjectSettings(diffusionProfileSettingsPath);
 
@@ -220,18 +208,8 @@ namespace Daz3D
                 "This list is found at the bottom of the HDRP Default Settings panel in the Project Settings dialog.\n\n" +
                 "Until this is done, materials using the HDRP Daz skin shader will have a Green Tint.";
 
-            if (Application.unityVersion.Contains("2019"))
-            {
-                diffusionProfileInstructions = "In order to use the HDRP Daz skin shaders, " +
-                "you must manually add the IrayUberSkinDiffusionProfile to the Diffusion Profile List.\n\n" +
-                "For Unity 2019, this list is found in the Material section of each HD RenderPipeline Asset, " +
-                "which can be found in the Quality->HDRP panel of the Project Settings dialog.\n\n" +
-                "Until this is done, materials using the HDRP Daz skin shader will have a Green Tint.";
-            }
-
             UnityEditor.EditorUtility.DisplayDialog("Required User Action: Add Iray Uber Diffusion Profile",
                 diffusionProfileInstructions, "OK");
-#endif
         }
 
         void OnEnable()
@@ -387,38 +365,39 @@ namespace Daz3D
             Daz3DDTUImporter.ReplaceMaterials = GUILayout.Toggle(Daz3DDTUImporter.ReplaceMaterials, "Replace FBX materials with high quality Daz-shader materials", bigStyle);
 
             GUILayout.Space(12);
-//            Daz3DDTUImporter.EnableDForceSupport = GUILayout.Toggle(Daz3DDTUImporter.EnableDForceSupport, "Enable dForce support (experimental)", bigStyle);
-#if USING_HDRP
-            Daz3DDTUImporter.UseLegacyShaders = GUILayout.Toggle((Daz3DDTUImporter.UseLegacyShaders), "Use Legacy Shaders", bigStyle);
-#else
-            GUILayout.Label("Legacy Shaders Option only available for HDRP", bigStyle);
-#endif
-#if USING_URP
-            Daz3DDTUImporter.UseLegacyShaders = false;
-#elif USING_BUILTIN
-            Daz3DDTUImporter.UseLegacyShaders = true;
-#endif
+            if (RenderPipelineHelper.IsHDRP)
+            {
+                GUILayout.Label("Legacy Shaders: " + (Daz3DDTUImporter.UseLegacyShaders ? "Yes (Built-In)" : "No (HDRP)"), bigStyle);
+            }
+            else
+            {
+                GUILayout.Label("Legacy Shaders Option only available for HDRP", bigStyle);
+            }
 
             GUILayout.Space(12);
             if (GUILayout.Button("Reset All", GUILayout.Width(100)))
                 Daz3DDTUImporter.ResetOptions();
 
             GUILayout.Space(24);
-#if USING_HDRP
-            GUILayout.TextArea("Configured for HDRP");
-#elif USING_URP
-            GUILayout.TextArea("Configured for URP");
-#elif USING_BUILTIN
-            GUILayout.TextArea("Configured for Built-In Rendering");
-#else
-            GUILayout.TextArea("No Renderpipeline configured.  Press Redetect RenderPipeline to configure now.");
-#endif
+            switch (RenderPipelineHelper.CurrentPipeline)
+            {
+                case DazRenderPipeline.HDRP:
+                    GUILayout.TextArea("Configured for HDRP");
+                    break;
+                case DazRenderPipeline.URP:
+                    GUILayout.TextArea("Configured for URP");
+                    break;
+                default:
+                    GUILayout.TextArea("Configured for Built-In Rendering");
+                    break;
+            }
 
-#if !USING_HARDCODED_RENDERPIPELINE
             GUILayout.Space(12);
             if (GUILayout.Button("Redetect RenderPipeline", GUILayout.Width(200)))
+            {
+                RenderPipelineHelper.InvalidateCache();
                 DetectRenderPipeline.RunOnce();
-#endif
+            }
             GUILayout.EndVertical();
 
             GUILayout.FlexibleSpace();

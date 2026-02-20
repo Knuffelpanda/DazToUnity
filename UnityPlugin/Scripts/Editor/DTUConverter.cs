@@ -1,8 +1,4 @@
-﻿#define USING_HDRP
-#define USING_HARDCODED_RENDERPIPELINE
-
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEditor;
@@ -11,30 +7,79 @@ namespace Daz3D
 {
 	public static class DTU_Constants
 	{
-#if USING_HDRP
-		public const string shaderNameMetal = "Daz3D/IrayUberMetal";
-		public const string shaderNameSpecular = "Daz3D/IrayUberSpec";
-		public const string shaderNameIraySkin = "Daz3D/IrayUberSkin";
-		public const string shaderNameHair = "Daz3D/Hair";
-		public const string shaderNameWet = "Daz3D/Wet";
-		public const string newShaderNameBase = "Daz3D/uDTU HDRP.";
-#elif USING_URP
-		public const string shaderNameMetal = "";
-		public const string shaderNameSpecular = "";
-		public const string shaderNameIraySkin = "";
-		public const string shaderNameHair = "";
-		public const string shaderNameWet = "Daz3D/uDTU URP.Transparent";
-		public const string newShaderNameBase = "Daz3D/uDTU URP.";
-#elif USING_BUILTIN
-		public const string shaderNameMetal = "Standard";
-		public const string shaderNameSpecular = "Standard";
-		public const string shaderNameIraySkin = "Standard";
-		public const string shaderNameHair = "Standard";
-		public const string shaderNameWet = "Standard";
-		public const string newShaderNameBase = "";
-#endif
-		public const string shaderNameInvisible = "Daz3D/Invisible";        //special shader that doesn't render anything
-
+		public static string shaderNameMetal
+		{
+			get
+			{
+				switch (RenderPipelineHelper.CurrentPipeline)
+				{
+					case DazRenderPipeline.HDRP: return "Daz3D/IrayUberMetal";
+					case DazRenderPipeline.URP: return "";
+					default: return "Standard";
+				}
+			}
+		}
+		public static string shaderNameSpecular
+		{
+			get
+			{
+				switch (RenderPipelineHelper.CurrentPipeline)
+				{
+					case DazRenderPipeline.HDRP: return "Daz3D/IrayUberSpec";
+					case DazRenderPipeline.URP: return "";
+					default: return "Standard";
+				}
+			}
+		}
+		public static string shaderNameIraySkin
+		{
+			get
+			{
+				switch (RenderPipelineHelper.CurrentPipeline)
+				{
+					case DazRenderPipeline.HDRP: return "Daz3D/IrayUberSkin";
+					case DazRenderPipeline.URP: return "";
+					default: return "Standard";
+				}
+			}
+		}
+		public static string shaderNameHair
+		{
+			get
+			{
+				switch (RenderPipelineHelper.CurrentPipeline)
+				{
+					case DazRenderPipeline.HDRP: return "Daz3D/Hair";
+					case DazRenderPipeline.URP: return "";
+					default: return "Standard";
+				}
+			}
+		}
+		public static string shaderNameWet
+		{
+			get
+			{
+				switch (RenderPipelineHelper.CurrentPipeline)
+				{
+					case DazRenderPipeline.HDRP: return "Daz3D/Wet";
+					case DazRenderPipeline.URP: return "Daz3D/uDTU URP.Transparent";
+					default: return "Standard";
+				}
+			}
+		}
+		public static string newShaderNameBase
+		{
+			get
+			{
+				switch (RenderPipelineHelper.CurrentPipeline)
+				{
+					case DazRenderPipeline.HDRP: return "Daz3D/uDTU HDRP.";
+					case DazRenderPipeline.URP: return "Daz3D/uDTU URP.";
+					default: return "";
+				}
+			}
+		}
+		public const string shaderNameInvisible = "Daz3D/Invisible";
 	}
 
 	/// <summary>
@@ -276,9 +321,6 @@ namespace Daz3D
 		/// <param name="hasGlossyColor"></param>
 		public void ToggleCommonMaterialProperties(ref Material mat, string matNameLower, bool isTransparent = false, bool isDoubleSided = false, bool hasDualLobeSpecularWeight = false, bool hasDualLobeSpecularReflectivity = false, int sortingPriority = 0, bool hasGlossyLayeredWeight=false, bool hasGlossyColor=false)
 		{
-#if USING_STANDARD_SHADER
-			return;
-#endif
 			if(isTransparent)
 			{
 				mat.SetFloat("_ZWrite",0f);
@@ -613,12 +655,11 @@ namespace Daz3D
 			// Monique 8 compatibility
 			if (glossyLayeredWeight.Float == 0f && dualLobeSpecularWeight.Float > 0f)
 			{
-#if USING_HDRP || USING_URP
-				glossyRoughness.Value = new DTUValue(1.0f);
-				rotatedRoughness = 1.0f;
-#elif USING_STANDARD_SHADER
-				glossyRoughness = specularLobe1Roughness;
-#endif
+			if (!RenderPipelineHelper.IsBuiltIn)
+				{
+					glossyRoughness.Value = new DTUValue(1.0f);
+					rotatedRoughness = 1.0f;
+				}
 			}
 
 			// PBRSkin shader compatibility
@@ -745,11 +786,7 @@ namespace Daz3D
 			}
 			else if(isWet)
 			{
-#if USING_STANDARD_SHADER
-				shaderName = DTU_Constants.shaderNameInvisible;
-#else
 				shaderName = DTU_Constants.shaderNameWet;
-#endif
 			}
 			else
 			{
@@ -796,13 +833,14 @@ namespace Daz3D
 					UnityEngine.Debug.LogError("Invalid material, we don't know what shader to pick");
 					return null;
 				}
-#if USING_URP
-				// DB 2021-09-28: URP needs hardcoded transparency shader mode, so this block is needed to override everything above
-				if(isTransparent && Daz3DDTUImporter.UseLegacyShaders==false)
-                {
-					shaderName = DTU_Constants.newShaderNameBase + "Transparent";
+			if (RenderPipelineHelper.IsURP)
+				{
+					// DB 2021-09-28: URP needs hardcoded transparency shader mode, so this block is needed to override everything above
+					if(isTransparent && Daz3DDTUImporter.UseLegacyShaders==false)
+					{
+						shaderName = DTU_Constants.newShaderNameBase + "Transparent";
+					}
 				}
-#endif
 			}
 
 			//Now that we know which shader to use, go ahead and make the mat
@@ -844,40 +882,7 @@ namespace Daz3D
 				// 2022-Feb-04 (DB): hardcode from isTransparent=true back to isTransparent=false to fix zsorting problems with hair vs cap, etc
 				isTransparent = false;
 
-#if USING_STANDARD_SHADER
-				mat.renderQueue = 2450;
-				mat.EnableKeyword("_ALPHATEST_ON");
-				mat.SetFloat("_Mode", 1.0f); // Set Cutout rendering mode
-				mat.SetFloat("_Cutoff", 0.35f);
-				if (cutoutOpacity.TextureExists())
-					mat.SetTexture("_MainTex", ImportTextureFromPath(cutoutOpacity.Texture, textureDir, record, false, true, true));
-
-				mat.SetColor("_Color", diffuseColor.Color);
-				if (diffuseColor.TextureExists())
-					mat.SetTexture("_MainTex", ImportTextureFromPath(diffuseColor.Texture, textureDir, record));
-
-				if (normalMap.TextureExists())
-				{
-					mat.EnableKeyword("_NORMALMAP");
-					mat.SetTexture("_BumpMap", ImportTextureFromPath(normalMap.Texture, textureDir, record, true));
-					mat.SetFloat("_BumpScale", normalMap.Float);
-				}
-				else
-				{
-					mat.DisableKeyword("_NORMALMAP");
-				}
-				if (bumpStrength.TextureExists())
-				{
-					mat.EnableKeyword("_PARALLAXMAP");
-					mat.SetFloat("_Parallax", bumpStrength.Float / 400.0f);
-					mat.SetTexture("_ParallaxMap", ImportTextureFromPath(bumpStrength.Texture, textureDir, record, false, true));
-				}
-				else
-				{
-					mat.DisableKeyword("_PARALLAXMAP");
-				}
-#else
-				mat.SetColor("_Diffuse",diffuseColor.Color);
+			mat.SetColor("_Diffuse",diffuseColor.Color);
 				mat.SetTexture("_DiffuseMap",ImportTextureFromPath(diffuseColor.Texture, textureDir, record));
 				mat.SetTexture("_NormalMap",ImportTextureFromPath(normalMap.Texture, textureDir, record, true));
 				if (normalMap.Texture == "")
@@ -887,12 +892,15 @@ namespace Daz3D
 				mat.SetFloat("_Height",bumpStrength.Float);
 				mat.SetTexture("_HeightMap",ImportTextureFromPath(bumpStrength.Texture, textureDir, record, false, true));
 				mat.SetFloat("_HeightOffset",0.25f);
-#if USING_HDRP || USING_URP
-				mat.SetTexture("_CutoutOpacityMap",ImportTextureFromPath(cutoutOpacity.Texture, textureDir, record, false, true));
-#elif USING_BUILTIN
-				mat.SetFloat("_Alpha", cutoutOpacity.Float);
-				mat.SetTexture("_AlphaMap", ImportTextureFromPath(cutoutOpacity.Texture, textureDir, record, false, true));
-#endif
+				if (!RenderPipelineHelper.IsBuiltIn)
+				{
+					mat.SetTexture("_CutoutOpacityMap",ImportTextureFromPath(cutoutOpacity.Texture, textureDir, record, false, true));
+				}
+				else // Built-in
+				{
+					mat.SetFloat("_Alpha", cutoutOpacity.Float);
+					mat.SetTexture("_AlphaMap", ImportTextureFromPath(cutoutOpacity.Texture, textureDir, record, false, true));
+				}
 
 				mat.SetTexture("_GlossyRoughnessMap",ImportTextureFromPath(glossyRoughness.Texture, textureDir, record, false, true));
 //				mat.SetFloat("_GlossyRoughness",glossyRoughness.Float);
@@ -910,15 +918,13 @@ namespace Daz3D
 				//A few magic values that work for most hairs
 				mat.SetFloat("_AlphaStrength",1.2f);
 				mat.SetFloat("_AlphaOffset",0.25f);
-#if USING_HDRP
-				mat.SetFloat("_AlphaClip",0.33f);
-#elif USING_URP
-				mat.SetFloat("_AlphaClipThreshold", 0.8f);
-#elif USING_BUILTIN
-				mat.SetFloat("_AlphaClipThreshold", 0.35f);
-#endif
+				if (RenderPipelineHelper.IsHDRP)
+					mat.SetFloat("_AlphaClip",0.33f);
+				else if (RenderPipelineHelper.IsURP)
+					mat.SetFloat("_AlphaClipThreshold", 0.8f);
+				else // Built-in
+					mat.SetFloat("_AlphaClipThreshold", 0.35f);
 				mat.SetFloat("_AlphaPower",1.0f);
-#endif // USING_STANDARD_SHADER
 			}
 			else if(isWet)
 			{
@@ -946,44 +952,20 @@ namespace Daz3D
 				//These properties are going to be parsed/interpretted in roughly the order that they appear in the table of iray props in the large comment block
 
 				//Diffuse affects color, and it's handled the same in every path and shader we have
-#if USING_STANDARD_SHADER
-				mat.SetColor("_Color", diffuseColor.Color);
-				if (diffuseColor.TextureExists())
-				{
-					var tex = ImportTextureFromPath(diffuseColor.Texture, textureDir, record);
-					mat.SetTexture("_MainTex", tex);
-				}
-#else
 				mat.SetColor("_Diffuse",diffuseColor.Color);
 				if(diffuseColor.TextureExists())
 				{
 					var tex = ImportTextureFromPath(diffuseColor.Texture, textureDir, record);
 					mat.SetTexture("_DiffuseMap",tex);
 				}
-#endif
 				// DB 2021-09-25: Metallic properties set for all shading modes, this let's the shadergraph variant
 				//    decide how to handle the metallic property -- either passing it directly to hardware or pre-process / emulate as needed.
-#if USING_STANDARD_SHADER
-				if (metallicWeight.TextureExists())
-				{
-					mat.EnableKeyword("_METALLICGLOSSMAP");
-					mat.SetFloat("_Metallic", metallicWeight.Float);
-					mat.SetTexture("_MetallicGlossMap", ImportTextureFromPath(metallicWeight.Texture, textureDir, record, false, true, true));
-				}
-				else if (glossyRoughness.TextureExists())
-                {
-					mat.EnableKeyword("_METALLICGLOSSMAP");
-					mat.SetTexture("_MetallicGlossMap", ImportTextureFromPath(glossyRoughness.Texture, textureDir, record, false, true, true));
-				}
-
-#else
 				mat.SetFloat("_Metallic", metallicWeight.Float);
 				if (metallicWeight.TextureExists())
 				{
 					var tex = ImportTextureFromPath(metallicWeight.Texture, textureDir, record, false, true);
 					mat.SetTexture("_MetallicMap", tex);
 				}
-#endif
 				////Metallic Weight affects the metalness and is only used with PBR Metal
 				////If we're usign a metal workflow...
 				//if (isMetal)
@@ -1217,14 +1199,8 @@ namespace Daz3D
 				mat.SetFloat("_Alpha",alpha);
 				mat.SetTexture("_AlphaMap",ImportTextureFromPath(cutoutOpacity.Texture, textureDir, record,false,true));
 
-#if USING_STANDARD_SHADER
-				if (glossyRoughnessValue < 0.2f) glossyRoughnessValue = 0.2f;
-				mat.SetFloat("_Glossiness", glossyRoughnessValue);
-//				mat.SetTexture("_SpecGlossMap",glossyRoughessMap);
-#else
-				mat.SetFloat("_Roughness",glossyRoughnessValue);
+			mat.SetFloat("_Roughness",glossyRoughnessValue);
 				mat.SetTexture("_RoughnessMap",glossyRoughessMap);
-#endif
 
 				if(isSpecular)
 				{
@@ -1243,36 +1219,10 @@ namespace Daz3D
 
 
 				//bump maps are like old school black/white bump maps, so we'll either plug them in directly or blend them into the normal map
-#if USING_STANDARD_SHADER
-				if (bumpStrength.TextureExists())
-                {
-					mat.EnableKeyword("_PARALLAXMAP");
-					mat.SetFloat("_Parallax", bumpStrength.Float / 400.0f);
-					mat.SetTexture("_ParallaxMap", ImportTextureFromPath(bumpStrength.Texture, textureDir, record, false, true));
-				}
-				else
-                {
-					mat.DisableKeyword("_PARALLAXMAP");
-				}
-#else
-				mat.SetFloat("_Height",bumpStrength.Float);
+			mat.SetFloat("_Height",bumpStrength.Float);
 				mat.SetTexture("_HeightMap",ImportTextureFromPath(bumpStrength.Texture, textureDir, record, false, true));
-#endif
-#if USING_STANDARD_SHADER
-				if (normalMap.TextureExists())
-                {
-					mat.EnableKeyword("_NORMALMAP");
-					mat.SetFloat("_BumpScale", normalMap.Float);
-					mat.SetTexture("_BumpMap", ImportTextureFromPath(normalMap.Texture, textureDir, record, true));
-				}
-				else
-                {
-					mat.DisableKeyword("_NORMALMAP");
-				}
-#else
 				mat.SetFloat("_Normal",normalMap.Float);
 				mat.SetTexture("_NormalMap",ImportTextureFromPath(normalMap.Texture, textureDir, record,true));
-#endif
 				// ---//right now we're ignoring top coats
 				// DB 2021-09-22: TopCoat implementation
 				mat.SetFloat("_TopCoatWeight", topCoatWeight.Float * 0.5f);
@@ -1280,21 +1230,8 @@ namespace Daz3D
 				mat.SetFloat("_TopCoatIOR", topCoatIOR.Float);
 				mat.SetColor("_TopCoatColor", topCoatColor.Color);
 
-#if USING_STANDARD_SHADER
-				if (emissionColor.TextureExists() || emissionColor.Color != Color.black)
-                {
-					mat.EnableKeyword("_EMISSION");
-					mat.SetColor("_EmissionColor", emissionColor.Color);
-					mat.SetTexture("_EmissionMap", ImportTextureFromPath(emissionColor.Texture, textureDir, record));
-				}
-				else
-                {
-					mat.DisableKeyword("_EMISSION");
-				}
-#else
-				mat.SetColor("_Emission",emissionColor.Color);
+			mat.SetColor("_Emission",emissionColor.Color);
 				mat.SetTexture("_EmissionMap",ImportTextureFromPath(emissionColor.Texture, textureDir, record));
-#endif
 
 
 				// DB 2021-09-02: EmissionStrength and Weight
@@ -1308,10 +1245,7 @@ namespace Daz3D
 					mat.SetFloat("_EmissionExposureWeight", 1.0f);
                 }
 
-#if USING_STANDARD_SHADER
-				// TODO: Implement PBRSkin Makeup Support for Standard Shader
-#else
-				// DB 2023-June-17: PBRSkin Makeup Support for HDRP and URP
+			// DB 2023-June-17: PBRSkin Makeup Support for HDRP and URP
 				// TODO: Implement Makeup Metallicity Support
 				if (dtuMaterial.MaterialType == "PBRSkin")
 				{
@@ -1324,7 +1258,6 @@ namespace Daz3D
 					mat.SetTexture("_MakeupRoughnessMultiplierMap",ImportTextureFromPath(makeupRoughness.Texture, textureDir, record, false, true));
 					//mat.setFloat("_MakeupMetallicity", makeupMetallicity.Float);
 				}
-#endif
 
 				//TODO: support displacement maps and tessellation
 				//TODO: support alternate uv sets (this can be done easier in code then in the shader though)
@@ -1463,11 +1396,7 @@ namespace Daz3D
 
 			if(isWet)
 			{
-#if USING_STANDARD_SHADER
-				shaderName = DTU_Constants.shaderNameInvisible;
-#else
-				shaderName = DTU_Constants.shaderNameWet;
-#endif
+			shaderName = DTU_Constants.shaderNameWet;
 			}
 
 			var shader = Shader.Find(shaderName);
@@ -1513,14 +1442,8 @@ namespace Daz3D
 			else
 			{
 				// DB 2022-July-8: Standard shader suppport
-#if USING_STANDARD_SHADER
-				mat.SetColor("_Color", diffuseColor.Color);
-				var tex = ImportTextureFromPath(diffuseColor.Texture, textureDir, record);
-				mat.SetTexture("_MainTex", tex);
-#else
-				mat.SetColor("_Diffuse",diffuseColor.Color);
+			mat.SetColor("_Diffuse",diffuseColor.Color);
 				mat.SetTexture("_DiffuseMap",ImportTextureFromPath(diffuseColor.Texture, textureDir, record));
-#endif
 
 				//glossiness seems to have no real effect, so we'll just set everything to being rough
 				mat.SetFloat("_Roughness",1.0f);
@@ -1582,22 +1505,11 @@ namespace Daz3D
 
 
 			//Fallback handling
-#if USING_STANDARD_SHADER
-			mat.renderQueue = 2450;
-			mat.EnableKeyword("_ALPHATEST_ON");
-			mat.SetFloat("_Mode", 1.0f); // Set Cutout rendering mode
-			mat.SetFloat("_Cutoff", 0.35f);
-			if (cutoutOpacity.Exists && cutoutOpacity.TextureExists())
-            {
-				mat.SetTexture("_MainTex", ImportTextureFromPath(cutoutOpacity.Texture, textureDir, record, false, true, true));
-			}
-#else
 			if (cutoutOpacity.Exists && cutoutOpacity.TextureExists())
 			{
 				mat.SetFloat("_Alpha",cutoutOpacity.Float);
 				mat.SetTexture("_AlphaMap",ImportTextureFromPath(cutoutOpacity.Texture, textureDir, record, false, true));
 			}
-#endif
 
 			//TODO: DiffuseStrength, SpecularStrength, AmbientStrength, Neg/Pos Bump, Disp, Reflection, Refraction
 
@@ -1678,14 +1590,8 @@ namespace Daz3D
 			}
 
 			// DB 2022-July-8: Standard shader suppport
-#if USING_STANDARD_SHADER
-			mat.SetColor("_Color", diffuseColor.Color);
-			var tex = ImportTextureFromPath(diffuseColor.Texture, textureDir, record);
-			mat.SetTexture("_MainTex", tex);
-#else
-			mat.SetColor("_Diffuse",diffuseColor.Color);
+		mat.SetColor("_Diffuse",diffuseColor.Color);
 			mat.SetTexture("_DiffuseMap",ImportTextureFromPath(diffuseColor.Texture, textureDir, record));
-#endif
 
 			mat.SetTexture("_NormalMap",ImportTextureFromPath(normalMap.Texture, textureDir, record, true));
 			mat.SetFloat("_NormalStrength",normalMap.Float);
@@ -1865,11 +1771,7 @@ namespace Daz3D
 			}
 			else if(isWet)
 			{
-#if USING_STANDARD_SHADER
-				shaderName = DTU_Constants.shaderNameInvisible;
-#else
-				shaderName = DTU_Constants.shaderNameWet;
-#endif
+			shaderName = DTU_Constants.shaderNameWet;
 			}
 
 			var shader = Shader.Find(shaderName);
@@ -1912,39 +1814,7 @@ namespace Daz3D
 				// 2022-Feb-04 (DB): hardcode isTransparent=false to fix transparency z-sorting problems
 				isTransparent = false;
 
-#if USING_STANDARD_SHADER
-				mat.EnableKeyword("_ALPHATEST_ON");
-				mat.SetFloat("_Mode", 1.0f); // Set Cutout rendering mode
-				mat.SetFloat("_Cutoff", 0.35f);
-				if (opacityStrength.TextureExists())
-					mat.SetTexture("_MainTex", ImportTextureFromPath(opacityStrength.Texture, textureDir, record, false, true, true));
-
-				mat.SetColor("_Color", diffuseColor.Color);
-				if (diffuseColor.TextureExists())
-					mat.SetTexture("_MainTex", ImportTextureFromPath(diffuseColor.Texture, textureDir, record));
-
-				if (normalMap.TextureExists())
-                {
-					mat.EnableKeyword("_NORMALMAP");
-					mat.SetTexture("_BumpMap", ImportTextureFromPath(normalMap.Texture, textureDir, record, true));
-					mat.SetFloat("_BumpScale", normalMap.Float);
-				}
-				else
-                {
-					mat.DisableKeyword("_NORMALMAP");
-				}
-				if (bumpStrength.TextureExists())
-                {
-					mat.EnableKeyword("_PARALLAXMAP");
-					mat.SetFloat("_Parallax", bumpStrength.Float / 400.0f);
-					mat.SetTexture("_ParallaxMap", ImportTextureFromPath(bumpStrength.Texture, textureDir, record, false, true));
-				}
-				else
-                {
-					mat.DisableKeyword("_PARALLAXMAP");
-				}
-#else
-				mat.SetColor("_Diffuse",diffuseColor.Color);
+			mat.SetColor("_Diffuse",diffuseColor.Color);
 				mat.SetTexture("_DiffuseMap",ImportTextureFromPath(diffuseColor.Texture, textureDir, record));
 				mat.SetTexture("_NormalMap",ImportTextureFromPath(normalMap.Texture, textureDir, record, true));
 				if (normalMap.Texture == "")
@@ -1954,12 +1824,15 @@ namespace Daz3D
 				mat.SetFloat("_Height",bumpStrength.Float);
 				mat.SetTexture("_HeightMap",ImportTextureFromPath(bumpStrength.Texture, textureDir, record, false, true));
 				mat.SetFloat("_HeightOffset",0.25f);
-#if USING_HDRP || USING_URP
-				mat.SetTexture("_CutoutOpacityMap",ImportTextureFromPath(opacityStrength.Texture, textureDir, record, false, true));
-#elif USING_BUILTIN
-				mat.SetFloat("_Alpha", opacityStrength.Float);
-				mat.SetTexture("_AlphaMap", ImportTextureFromPath(opacityStrength.Texture, textureDir, record, false, true));
-#endif
+				if (!RenderPipelineHelper.IsBuiltIn)
+				{
+					mat.SetTexture("_CutoutOpacityMap",ImportTextureFromPath(opacityStrength.Texture, textureDir, record, false, true));
+				}
+				else // Built-in
+				{
+					mat.SetFloat("_Alpha", opacityStrength.Float);
+					mat.SetTexture("_AlphaMap", ImportTextureFromPath(opacityStrength.Texture, textureDir, record, false, true));
+				}
 				mat.SetTexture("_GlossyRoughnessMap",ImportTextureFromPath(glossiness.Texture, textureDir, record, false, true));
 				if (glossiness.Float > 0.60f)
 					mat.SetFloat("_GlossyRoughness", glossiness.Float - 0.25f);
@@ -1971,15 +1844,13 @@ namespace Daz3D
 				//A few magic values that work for most hairs
 				mat.SetFloat("_AlphaStrength",1.2f);
 				mat.SetFloat("_AlphaOffset",0.25f);
-#if USING_HDRP
-				mat.SetFloat("_AlphaClip",0.33f);
-#elif USING_URP
-				mat.SetFloat("_AlphaClipThreshold", 0.8f);
-#elif USING_BUILTIN
-				mat.SetFloat("_AlphaClipThreshold", 0.35f);
-#endif
+				if (RenderPipelineHelper.IsHDRP)
+					mat.SetFloat("_AlphaClip",0.33f);
+				else if (RenderPipelineHelper.IsURP)
+					mat.SetFloat("_AlphaClipThreshold", 0.8f);
+				else // Built-in
+					mat.SetFloat("_AlphaClipThreshold", 0.35f);
 				mat.SetFloat("_AlphaPower",1.0f);
-#endif // USING_STANDARD_SHADER
 			}
 			else if(isWet)
 			{
@@ -2000,14 +1871,8 @@ namespace Daz3D
 			else
 			{
 				// DB 2022-July-8: Standard shader support
-#if USING_STANDARD_SHADER
-				mat.SetColor("_Color", diffuseColor.Color);
-				var tex = ImportTextureFromPath(diffuseColor.Texture, textureDir, record);
-				mat.SetTexture("_MainTex", tex);
-#else
-				mat.SetColor("_Diffuse",diffuseColor.Color);
+			mat.SetColor("_Diffuse",diffuseColor.Color);
 				mat.SetTexture("_DiffuseMap",ImportTextureFromPath(diffuseColor.Texture, textureDir, record));
-#endif
 
 				if(opacityActive.Float > 0f)
 				{
@@ -2139,14 +2004,8 @@ namespace Daz3D
 			bool isTransparent = false;
 
 			// DB 2022-July-8: standard shader support
-#if USING_STANDARD_SHADER
-			mat.SetColor("_Color", diffuseColor.Color);
-			var tex = ImportTextureFromPath(diffuseColor.Texture, textureDir, record);
-			mat.SetTexture("_MainTex", tex);
-#else
-			mat.SetColor("_Diffuse",diffuseColor.Color);
+		mat.SetColor("_Diffuse",diffuseColor.Color);
 			mat.SetTexture("_DiffuseMap",ImportTextureFromPath(diffuseColor.Texture, textureDir, record));
-#endif
 
 			if(Mathf.Approximately((float)bumpMode.Value.AsDouble,0))
 			{
@@ -2175,13 +2034,12 @@ namespace Daz3D
 			//A few magic values that work for most hairs
 			mat.SetFloat("_AlphaStrength",1.2f);
 			mat.SetFloat("_AlphaOffset",0.25f);
-#if USING_HDRP
-			mat.SetFloat("_AlphaClip",0.75f);
-#elif USING_URP
-			mat.SetFloat("_AlphaClipThreshold", 0.8f);
-#elif USING_BUILTIN
-			mat.SetFloat("_AlphaClipThreshold", 0.35f);
-#endif
+			if (RenderPipelineHelper.IsHDRP)
+				mat.SetFloat("_AlphaClip",0.75f);
+			else if (RenderPipelineHelper.IsURP)
+				mat.SetFloat("_AlphaClipThreshold", 0.8f);
+			else // Built-in
+				mat.SetFloat("_AlphaClipThreshold", 0.35f);
 			mat.SetFloat("_AlphaPower",1.0f);
 
 
@@ -2283,14 +2141,8 @@ namespace Daz3D
 			bool isTransparent = false;
 
 			// DB 2022-July-8: standard shader support
-#if USING_STANDARD_SHADER
-			mat.SetColor("_Color", diffuseColor.Color);
-			var tex = ImportTextureFromPath(diffuseColor.Texture, textureDir, record);
-			mat.SetTexture("_MainTex", tex);
-#else
-			mat.SetColor("_Diffuse", diffuseColor.Color);
+		mat.SetColor("_Diffuse", diffuseColor.Color);
 			mat.SetTexture("_DiffuseMap", ImportTextureFromPath(diffuseColor.Texture, textureDir, record));
-#endif
 
 			if (Mathf.Approximately((float)bumpMode.Value.AsDouble, 0))
 			{
@@ -2319,13 +2171,12 @@ namespace Daz3D
 			//A few magic values that work for most hairs
 			mat.SetFloat("_AlphaStrength", 1.2f);
 			mat.SetFloat("_AlphaOffset", 0.25f);
-#if USING_HDRP
-			mat.SetFloat("_AlphaClip", 0.75f);
-#elif USING_URP
-			mat.SetFloat("_AlphaClipThreshold", 0.8f);
-#elif USING_BUILTIN
-			mat.SetFloat("_AlphaClipThreshold", 0.35f);
-#endif
+			if (RenderPipelineHelper.IsHDRP)
+				mat.SetFloat("_AlphaClip", 0.75f);
+			else if (RenderPipelineHelper.IsURP)
+				mat.SetFloat("_AlphaClipThreshold", 0.8f);
+			else // Built-in
+				mat.SetFloat("_AlphaClipThreshold", 0.35f);
 			mat.SetFloat("_AlphaPower", 1.0f);
 
 
@@ -2434,26 +2285,23 @@ namespace Daz3D
 			bool isTransparent = false;
 
 			// DB 2022-July-8: standard shader support
-#if USING_STANDARD_SHADER
-			mat.SetColor("_Color", diffuseColor.Color);
-			var tex = ImportTextureFromPath(diffuseColor.Texture, textureDir, record);
-			mat.SetTexture("_MainTex", tex);
-#else
-			mat.SetColor("_Diffuse",diffuseColor.Color);
+		mat.SetColor("_Diffuse",diffuseColor.Color);
 			mat.SetTexture("_DiffuseMap",ImportTextureFromPath(diffuseColor.Texture, textureDir, record));
-#endif
 
 			mat.SetTexture("_NormalMap",ImportTextureFromPath(normalMap.Texture, textureDir, record, true));
 			mat.SetFloat("_NormalStrength",normalMap.Float);
 			mat.SetFloat("_Height",bumpStrength.Float);
 			mat.SetTexture("_HeightMap",ImportTextureFromPath(bumpStrength.Texture, textureDir, record, false, true));
 			mat.SetFloat("_HeightOffset",0.25f);
-#if USING_HDRP || USING_URP
-			mat.SetTexture("_CutoutOpacityMap",ImportTextureFromPath(cutoutOpacity.Texture, textureDir, record, false, true));
-#elif USING_BUILTIN
-			mat.SetFloat("_Alpha", cutoutOpacity.Float);
-			mat.SetTexture("_AlphaMap", ImportTextureFromPath(cutoutOpacity.Texture, textureDir, record, false, true));
-#endif
+		if (!RenderPipelineHelper.IsBuiltIn)
+			{
+				mat.SetTexture("_CutoutOpacityMap",ImportTextureFromPath(cutoutOpacity.Texture, textureDir, record, false, true));
+			}
+			else // Built-in
+			{
+				mat.SetFloat("_Alpha", cutoutOpacity.Float);
+				mat.SetTexture("_AlphaMap", ImportTextureFromPath(cutoutOpacity.Texture, textureDir, record, false, true));
+			}
 			mat.SetTexture("_GlossyRoughnessMap",ImportTextureFromPath(glossyRoughness.Texture, textureDir, record, false, true));
 			mat.SetFloat("_GlossyRoughness",glossyRoughness.Float);
 
@@ -2463,13 +2311,12 @@ namespace Daz3D
 			//A few magic values that work for most hairs
 			mat.SetFloat("_AlphaStrength",1.2f);
 			mat.SetFloat("_AlphaOffset",0.25f);
-#if USING_HDRP
-			mat.SetFloat("_AlphaClip",0.42f);
-#elif USING_URP
-			mat.SetFloat("_AlphaClipThreshold", 0.42f);
-#elif USING_BUILTIN
-			mat.SetFloat("_AlphaClipThreshold", 0.15f);
-#endif
+			if (RenderPipelineHelper.IsHDRP)
+				mat.SetFloat("_AlphaClip",0.42f);
+			else if (RenderPipelineHelper.IsURP)
+				mat.SetFloat("_AlphaClipThreshold", 0.42f);
+			else // Built-in
+				mat.SetFloat("_AlphaClipThreshold", 0.15f);
 			mat.SetFloat("_AlphaPower",1.0f);
 
 
@@ -2662,9 +2509,19 @@ namespace Daz3D
 			AssetDatabase.CreateAsset(mat,materialPath);
 
 			//Works around a bug in HDRP, see: https://docs.unity3d.com/Packages/com.unity.render-pipelines.high-definition@7.1/manual/Creating-and-Editing-HDRP-Shader-Graphs.html "Known Issues"
-#if USING_HDRP
-			UnityEditor.Rendering.HighDefinition.HDShaderUtils.ResetMaterialKeywords(mat);
-#endif
+			if (RenderPipelineHelper.IsHDRP)
+			{
+				try
+				{
+					var hdShaderUtilsType = System.Type.GetType("UnityEditor.Rendering.HighDefinition.HDShaderUtils, Unity.RenderPipelines.HighDefinition.Editor");
+					if (hdShaderUtilsType != null)
+					{
+						var method = hdShaderUtilsType.GetMethod("ResetMaterialKeywords", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+						method?.Invoke(null, new object[] { mat });
+					}
+				}
+				catch (System.Exception) { }
+			}
 		}
 
 		private static DTUMaterialProperty ExtractDTUMatProperty(ref DTUMaterial dtuMaterial, string key)

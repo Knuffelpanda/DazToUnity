@@ -1,9 +1,9 @@
-﻿#define USING_HDRP
-#define USING_HARDCODED_RENDERPIPELINE
-
-
-using UnityEditor;
+﻿using UnityEditor;
+#if UNITY_6000_0_OR_NEWER
+using UnityEditor.AssetImporters;
+#else
 using UnityEditor.Experimental.AssetImporters;
+#endif
 using System.Collections.Generic;
 using System;
 using System.Collections;
@@ -23,11 +23,7 @@ namespace Daz3D
         public static bool AutomateMecanimAvatarMappings = true;
         public static bool ReplaceMaterials = true;
         public static bool EnableDForceSupport = false;
-#if USING_HDRP || USING_URP
-        public static bool UseLegacyShaders = false;
-#else
-        public static bool UseLegacyShaders = true;
-#endif
+        public static bool UseLegacyShaders => RenderPipelineHelper.IsBuiltIn;
 
         public static void ResetOptions()
         {
@@ -37,11 +33,6 @@ namespace Daz3D
             AutomateMecanimAvatarMappings = true;
             ReplaceMaterials = true;
             EnableDForceSupport = false;
-#if USING_HDRP || USING_URP
-            UseLegacyShaders = false;
-#else
-            UseLegacyShaders = true;
-#endif
         }
 
         [Serializable]
@@ -211,15 +202,7 @@ namespace Daz3D
 
         public static bool IsRenderPipelineDetected()
         {
-#if !USING_HDRP && !USING_URP && !USING_BUILTIN
-            ImportEventRecord record = new ImportEventRecord();
-            EventQueue.Enqueue(record);
-            record.AddToken("DTU Bridge must autodetect a RenderPipeline in order to continue.\nThis will involve updating Symbol Definitions and will trigger \nUnity Editor to recompile all scripts.");
-
-            return false;
-#else
             return true;
-#endif
         }
 
         private static IEnumerator ImportRoutine(string dtuPath, string fbxPath)
@@ -322,35 +305,34 @@ namespace Daz3D
 
         private static bool IrayShadersReady()
         {
-
-#if USING_HDRP || USING_BUILTIN
-            if (
-                Shader.Find(DTU_Constants.shaderNameMetal) == null ||
-                Shader.Find(DTU_Constants.shaderNameSpecular) == null ||
-                Shader.Find(DTU_Constants.shaderNameIraySkin) == null ||
-                Shader.Find(DTU_Constants.shaderNameHair) == null ||
-                Shader.Find(DTU_Constants.shaderNameWet) == null ||
-                Shader.Find(DTU_Constants.shaderNameInvisible) == null
-            ) {
-                return false;
-            }
-
-            return true;
-#elif USING_URP
-            if (
-                Shader.Find(DTU_Constants.newShaderNameBase + "Hair") == null ||
-                Shader.Find(DTU_Constants.newShaderNameBase + "SSS") == null ||
-                Shader.Find(DTU_Constants.newShaderNameBase + "Specular") == null ||
-                Shader.Find(DTU_Constants.newShaderNameBase + "Metallic") == null 
-            )
+            if (RenderPipelineHelper.IsURP)
             {
-                return false;
+                if (
+                    Shader.Find(DTU_Constants.newShaderNameBase + "Hair") == null ||
+                    Shader.Find(DTU_Constants.newShaderNameBase + "SSS") == null ||
+                    Shader.Find(DTU_Constants.newShaderNameBase + "Specular") == null ||
+                    Shader.Find(DTU_Constants.newShaderNameBase + "Metallic") == null
+                )
+                {
+                    return false;
+                }
+                return true;
             }
-
-            return true;
-#else
-            return false;
-#endif
+            else // HDRP or Built-in
+            {
+                if (
+                    Shader.Find(DTU_Constants.shaderNameMetal) == null ||
+                    Shader.Find(DTU_Constants.shaderNameSpecular) == null ||
+                    Shader.Find(DTU_Constants.shaderNameIraySkin) == null ||
+                    Shader.Find(DTU_Constants.shaderNameHair) == null ||
+                    Shader.Find(DTU_Constants.shaderNameWet) == null ||
+                    Shader.Find(DTU_Constants.shaderNameInvisible) == null
+                )
+                {
+                    return false;
+                }
+                return true;
+            }
         }
 
         //// unused blocking method
@@ -574,41 +556,48 @@ namespace Daz3D
                     //using Unity's internal MakePoseValid method, which does a perfect job
                     if (platform == DazFigurePlatform.Genesis8 && false)
                     {
-                        //use reflection to access AvatarSetupTool;
-                        var setupToolType = Type.GetType("UnityEditor.AvatarSetupTool,UnityEditor.dll");
-                        var boneWrapperType = Type.GetType("UnityEditor.AvatarSetupTool+BoneWrapper,UnityEditor.dll");
-
-                        if (boneWrapperType != null && setupToolType != null)
+                        try
                         {
-                            var existingMappings = new Dictionary<string, string>();
-                            var human = description.human;
+                            //use reflection to access AvatarSetupTool;
+                            var setupToolType = Type.GetType("UnityEditor.AvatarSetupTool,UnityEditor.dll");
+                            var boneWrapperType = Type.GetType("UnityEditor.AvatarSetupTool+BoneWrapper,UnityEditor.dll");
 
-                            for (var i = 0; i < human.Length; ++i)
-                                existingMappings[human[i].humanName] = human[i].boneName;
+                            if (boneWrapperType != null && setupToolType != null)
+                            {
+                                var existingMappings = new Dictionary<string, string>();
+                                var human = description.human;
 
-                            var getModelBones = setupToolType.GetMethod("GetModelBones");
-                            var getHumanBones = setupToolType.GetMethod("GetHumanBones", new[] { typeof(Dictionary<string, string>), typeof(Dictionary<Transform, bool>) });
-                            var makePoseValid = setupToolType.GetMethod("MakePoseValid");
-                            resetPose = setupToolType.GetMethod("CopyPose");
-                            xferPose = setupToolType.GetMethod("TransferPoseToDescription");
+                                for (var i = 0; i < human.Length; ++i)
+                                    existingMappings[human[i].humanName] = human[i].boneName;
 
-                            if (getModelBones != null && getHumanBones != null && makePoseValid != null)
-                            { 
-                                record.AddToken("Corrected Avatar Setup T-pose for Genesis8 figure: ", null);
-                                record.AddToken(fbxPrefab.name, fbxPrefab, ENDLINE);
+                                var getModelBones = setupToolType.GetMethod("GetModelBones");
+                                var getHumanBones = setupToolType.GetMethod("GetHumanBones", new[] { typeof(Dictionary<string, string>), typeof(Dictionary<Transform, bool>) });
+                                var makePoseValid = setupToolType.GetMethod("MakePoseValid");
+                                resetPose = setupToolType.GetMethod("CopyPose");
+                                xferPose = setupToolType.GetMethod("TransferPoseToDescription");
 
-                                var modelBones = (Dictionary<Transform, bool>)getModelBones.Invoke(null, new object[] { avatarInstance.transform, false, null });
-                                var humanBones = (ICollection<object>)getHumanBones.Invoke(null, new object[] { existingMappings, modelBones });
+                                if (getModelBones != null && getHumanBones != null && makePoseValid != null)
+                                {
+                                    record.AddToken("Corrected Avatar Setup T-pose for Genesis8 figure: ", null);
+                                    record.AddToken(fbxPrefab.name, fbxPrefab, ENDLINE);
 
-                                // a little dance to populate array of Unity's internal BoneWrapper type 
-                                var humanBonesArray = new object[humanBones.Count];
-                                humanBones.CopyTo(humanBonesArray, 0);
-                                Array destinationArray = Array.CreateInstance(boneWrapperType, humanBones.Count);
-                                Array.Copy(humanBonesArray, destinationArray, humanBones.Count);
+                                    var modelBones = (Dictionary<Transform, bool>)getModelBones.Invoke(null, new object[] { avatarInstance.transform, false, null });
+                                    var humanBones = (ICollection<object>)getHumanBones.Invoke(null, new object[] { existingMappings, modelBones });
 
-                                //This mutates the transforms (modelBones) via Bonewrapper class
-                                makePoseValid.Invoke(null, new[] { destinationArray });
+                                    // a little dance to populate array of Unity's internal BoneWrapper type
+                                    var humanBonesArray = new object[humanBones.Count];
+                                    humanBones.CopyTo(humanBonesArray, 0);
+                                    Array destinationArray = Array.CreateInstance(boneWrapperType, humanBones.Count);
+                                    Array.Copy(humanBonesArray, destinationArray, humanBones.Count);
+
+                                    //This mutates the transforms (modelBones) via Bonewrapper class
+                                    makePoseValid.Invoke(null, new[] { destinationArray });
+                                }
                             }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogWarning("AvatarSetupTool reflection failed (may not be available in this Unity version): " + ex.Message);
                         }
                     }
 
@@ -911,7 +900,11 @@ namespace Daz3D
             Selection.activeGameObject = prefab;
 
             //now, seek other instance(s) in the scene having been sourced from this fbx asset
+#if UNITY_6000_0_OR_NEWER
+            var otherInstances = FindObjectsByType<Daz3DInstance>(FindObjectsSortMode.None);
+#else
             var otherInstances = FindObjectsOfType<Daz3DInstance>();
+#endif
             int foundCount = 0;
 
             var resultingInstance = workingInstance;
