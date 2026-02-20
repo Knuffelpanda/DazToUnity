@@ -2,3 +2,5 @@
 out
 CMakeSettings.json
 .DS_Store
+.claude/
+CLAUDE.md
