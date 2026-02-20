@@ -28,6 +28,7 @@
 
 #include "DzUnityAction.h"
 #include "DzUnityDialog.h"
+#include "DzGLTFExporter.h"
 #include "DzBridgeMorphSelectionDialog.h"
 #include "DzBridgeSubdivisionDialog.h"
 
@@ -42,6 +43,7 @@ DzUnityAction::DzUnityAction() :
 {
 	m_nNonInteractiveMode = 0;
 	m_sAssetType = QString("SkeletalMesh");
+	m_bExportGLTF = false;
 	//Setup Icon
 	QString iconName = "icon";
 	QPixmap basePixmap = QPixmap::fromImage(getEmbeddedImage(iconName.toLatin1()));
@@ -199,7 +201,10 @@ void DzUnityAction::executeAction()
 		// Read Custom GUI values
 		DzUnityDialog* unityDialog = qobject_cast<DzUnityDialog*>(m_bridgeDialog);
 		if (unityDialog)
+		{
 			m_bInstallUnityFiles = unityDialog->installUnityFilesCheckBox->isChecked();
+			m_bExportGLTF = unityDialog->exportGltfCheckBox->isChecked();
+		}
 		// custom animation filename correction for Unity
 		if (m_sAssetType == "Animation")
 		{
@@ -219,6 +224,19 @@ void DzUnityAction::executeAction()
 		exportProgress->step();
 
 		exportHD(exportProgress);
+
+		// Fase 5: optional glTF (.glb) export
+		if (m_bExportGLTF && m_pSelectedNode)
+		{
+			QString glbPath = m_sDestinationPath + m_sExportFilename + ".glb";
+			DzGLTFExporter gltfExporter;
+			if (!gltfExporter.exportGLB(m_pSelectedNode, glbPath))
+			{
+				if (m_nNonInteractiveMode == 0)
+					QMessageBox::warning(0, tr("Daz To Unity Bridge"),
+						tr("glTF export failed: ") + gltfExporter.getLastError());
+			}
+		}
 
 		// DB 2021-10-11: Progress Bar
 		exportProgress->finish();

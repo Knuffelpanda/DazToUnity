@@ -52,6 +52,7 @@ DzUnityDialog::DzUnityDialog(QWidget* parent) :
 	 assetsFolderEdit = nullptr;
 	 assetsFolderButton = nullptr;
 	 installUnityFilesCheckBox = nullptr;
+	 exportGltfCheckBox = nullptr;
 
 	 settings = new QSettings("Daz 3D", "DazToUnity");
 
@@ -119,6 +120,10 @@ DzUnityDialog::DzUnityDialog(QWidget* parent) :
 	 installUnityFilesCheckBox = new QCheckBox("", this);
 	 connect(installUnityFilesCheckBox, SIGNAL(stateChanged(int)), this, SLOT(HandleInstallUnityFilesCheckBoxChange(int)));
 
+	 // glTF export option
+	 exportGltfCheckBox = new QCheckBox("", this);
+	 exportGltfCheckBox->setToolTip(tr("Also export a GLB (binary glTF 2.0) file alongside the FBX."));
+
 	// Disable Experimental Options Checkbox
 	m_enableExperimentalOptionsCheckBox->setEnabled(false);
 	m_enableExperimentalOptionsCheckBox->setToolTip(tr("No experimental options in this version."));
@@ -127,6 +132,7 @@ DzUnityDialog::DzUnityDialog(QWidget* parent) :
 	 // Add the widget to the basic dialog
 	 mainLayout->insertRow(1, "Unity Assets Folder", assetsFolderLayout);
 	 mainLayout->insertRow(2, installOrOverwriteUnityFilesLabel, installUnityFilesCheckBox);
+	 mainLayout->insertRow(3, tr("Export glTF (.glb)"), exportGltfCheckBox);
 
 	 // Rename Open Intermediate Folder button
 	 m_OpenIntermediateFolderButton->setText(tr("Open Unity Project Folder"));
@@ -659,6 +665,7 @@ void DzUnityDialog::setDisabled(bool bDisabled)
 	assetsFolderButton->setDisabled(bDisabled);
 	assetsFolderEdit->setDisabled(bDisabled);
 	installUnityFilesCheckBox->setDisabled(bDisabled);
+	exportGltfCheckBox->setDisabled(bDisabled);
 
 }
 

@@ -14,14 +14,19 @@ class UnitTest_DzUnityAction;
 class DzUnityAction : public DZ_BRIDGE_NAMESPACE::DzBridgeAction {
 	 Q_OBJECT
 	 Q_PROPERTY(bool InstallUnityFiles READ getInstallUnityFiles WRITE setInstallUnityFiles)
+	 Q_PROPERTY(bool ExportGLTF READ getExportGLTF WRITE setExportGLTF)
 public:
 	DzUnityAction();
 
 	void setInstallUnityFiles(bool arg) { m_bInstallUnityFiles = arg; }
 	bool getInstallUnityFiles() { return m_bInstallUnityFiles; }
 
+	void setExportGLTF(bool arg) { m_bExportGLTF = arg; }
+	bool getExportGLTF() { return m_bExportGLTF; }
+
 protected:
 	 bool m_bInstallUnityFiles;
+	 bool m_bExportGLTF;
 
 	 void executeAction();
 	 Q_INVOKABLE bool createUI();

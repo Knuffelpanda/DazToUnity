@@ -38,6 +38,8 @@ add_library( ${DZ_PLUGIN_TGT_NAME} SHARED
 	DzUnityAction.h
 	DzUnityDialog.cpp
 	DzUnityDialog.h
+	DzGLTFExporter.cpp
+	DzGLTFExporter.h
 	pluginmain.cpp
 	version.h
 	Resources/resources.qrc

@@ -51,6 +51,8 @@ protected:
 	QLabel* installOrOverwriteUnityFilesLabel;
 	QCheckBox* installUnityFilesCheckBox;
 
+	QCheckBox* exportGltfCheckBox;
+
 	bool IsValidProjectFolder(QString sProjectFolderPath);
 	bool installUpmPackage(const QString& sProjectFolder);
 	virtual void setDisabled(bool) override;
