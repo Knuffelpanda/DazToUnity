@@ -849,6 +849,14 @@ namespace Daz3D
 						shaderName = DTU_Constants.newShaderNameBase + "Transparent";
 					}
 				}
+				else if (RenderPipelineHelper.IsHDRP)
+				{
+					// HDRP transparent materials use the dedicated HDRP Transparent shadergraph
+					if(isTransparent && Daz3DDTUImporter.UseLegacyShaders==false)
+					{
+						shaderName = DTU_Constants.newShaderNameBase + "Transparent";
+					}
+				}
 			}
 
 			//Now that we know which shader to use, go ahead and make the mat
