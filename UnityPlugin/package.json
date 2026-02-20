@@ -1,6 +1,6 @@
 {
   "name": "com.daz3d.daz-to-unity",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "displayName": "Daz To Unity Bridge",
   "description": "Transfer Daz Studio characters and props to Unity",
   "unity": "2022.3",
