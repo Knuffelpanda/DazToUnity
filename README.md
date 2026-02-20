@@ -1,119 +1,186 @@
-# DazToUnity
-A Daz Studio Plugin based on Daz Bridge Library, allowing transfer of Daz Studio characters and props to the Unity game engine.
+# DazToUnity Bridge
 
-# Table of Contents
-1. About the Bridge
-2. How to Install
-3. How to Use
-4. How to Build
-5. How to QA Test
-6. How to Develop
+A modernized fork of the [Daz3D DazToUnity Bridge](https://github.com/daz3d/DazToUnity), updated for Unity 6 and all three render pipelines — HDRP, URP, and Built-in.
 
+> **Based on the original work by [Daz 3D](https://github.com/daz3d/DazToUnity).**
+> This fork focuses on Unity 6 compatibility, runtime render pipeline detection, UPM packaging, and a unified uDTU shader family for all pipelines.
 
-# 1. About the Bridge
-This is a refactored version of the original DazToUnity Bridge using the Daz Bridge Library as a foundation. Using the Bridge Library allows it to share source code and features with other bridges such as the refactored DazToUnreal and DazToBlender bridges. This will improve development time and quality of all bridges.
+---
 
-The DazToUnity Bridge consists of two parts: a Daz Studio plugin which exports assets to a Unity Project and a Unity Package which contains shaders, scripts and other resources to help recreate the look of the original Daz Studio asset in the Unity game engine.
+## Table of Contents
 
+1. [What's Different in This Fork](#1-whats-different-in-this-fork)
+2. [How to Install](#2-how-to-install)
+3. [How to Use](#3-how-to-use)
+4. [How to Build](#4-how-to-build)
+5. [How to Test](#5-how-to-test)
+6. [How to Develop](#6-how-to-develop)
 
-# 2. How to Install
-### Daz Studio Plugin ###
+---
+
+## 1. What's Different in This Fork
+
+This fork modernizes the original DazToUnity Bridge with a focus on clean, forward-compatible code:
+
+**Unity 6 compatibility**
+- Replaced deprecated `FindObjectsOfType` with `FindObjectsByType`
+- Switched to `EditorSceneManager` for scene operations
+- Removed Unity 2019 dead code paths
+- Added safety around `AvatarSetupTool`
+
+**Runtime render pipeline detection**
+- New `RenderPipelineHelper` replaces all `#if USING_HDRP / URP / BUILTIN` preprocessor directives
+- Pipeline detection is cached at runtime via `GraphicsSettings.currentRenderPipeline`
+- Shader names are runtime properties, not compile-time constants
+
+**UPM package structure**
+- Installable via Unity Package Manager from a git URL — no file copying needed
+- Proper Runtime and Editor assembly definitions
+- SimpleJSON vendor dependency isolated with `autoReferenced: false`
+
+**Unified uDTU shader family for all pipelines**
+- HDRP and URP: existing Shader Graph shaders (Hair, Metallic, Specular, SSS, Transparent)
+- Built-in RP: new ShaderLab surface shaders matching the same property interface
+- All three pipelines use the same material conversion path — no legacy fallback
+
+---
+
+## 2. How to Install
+
+### Daz Studio Plugin
 
 1. Go to the [Releases page](https://github.com/Knuffelpanda/DazToUnity/releases)
 2. Download **dzunitybridge.dll**
 3. Copy the DLL into your Daz Studio plugins folder:
    ```
-   <Daz Studio Install>\DAZStudio4\plugins\
+   C:\Daz 3D\Applications\64-bit\DAZ 3D\DAZStudio4\plugins\
    ```
-   Common locations:
-   - `C:\Daz 3D\Applications\64-bit\DAZ 3D\DAZStudio4\plugins\`
-   - `D:\DAZ 3D\64bit\DAZ 3D\DAZStudio4\plugins\`
 4. Restart Daz Studio
-5. Verify: **File -> Send To -> Daz To Unity** should now appear in the menu
+5. Verify: **File → Send To → Daz To Unity** appears in the menu
 
+---
 
-### Unity Plugin ###
+### Unity Plugin
 
-There are two ways to install the Unity plugin: **UPM (recommended)** or the classic **.unitypackage** method.
+#### Option A — UPM / Unity Package Manager (Recommended, Unity 2022.3+)
 
-#### Option A: UPM / Unity Package Manager (Recommended — Unity 2022.3+) ####
+The cleanest install. No files are copied into your Assets folder.
 
-The UPM method installs the plugin as a proper Unity package. It stays up to date automatically and does not copy files into your Assets folder.
-
-**From Daz Studio (automatic):**
-1. Start Daz Studio and select File -> Send To -> DazToUnity.
-2. Enable the Advanced Settings checkbox.
-3. Select **"UPM Package (Unity 2022.3+)"** from the dropdown.
-4. Click "Install Plugin" and select your Unity Project's root folder.
-5. Switch to Unity — the Package Manager will download the Daz To Unity Bridge package automatically.
-
-**From Unity (manual):**
-1. Open your Unity project.
-2. Go to **Window -> Package Manager**.
-3. Click the **+** button (top-left) and select **"Add package from git URL..."**.
-4. Paste the following URL and click Add:
+**From Unity:**
+1. Open your project
+2. Go to **Window → Package Manager**
+3. Click **+** → **Add package from git URL...**
+4. Paste:
    ```
    https://github.com/Knuffelpanda/DazToUnity.git?path=UnityPlugin
    ```
-5. Unity will download and install the package. It will appear as "Daz To Unity" in the Package Manager.
+5. Click **Add**
 
-**Or edit `manifest.json` directly:**
-1. Open `<YourProject>/Packages/manifest.json` in a text editor.
-2. Add this line inside the `"dependencies"` block:
-   ```json
-   "com.daz3d.daz-to-unity": "https://github.com/Knuffelpanda/DazToUnity.git?path=UnityPlugin"
-   ```
-3. Save the file and switch to Unity. The package will be resolved automatically.
+**Or edit `Packages/manifest.json` directly:**
+```json
+"com.daz3d.daz-to-unity": "https://github.com/Knuffelpanda/DazToUnity.git?path=UnityPlugin"
+```
 
-#### Option B: .unitypackage (Classic method) ####
+**From Daz Studio (automatic):**
+1. Open **File → Send To → Daz To Unity**
+2. Enable **Advanced Settings**
+3. Select **UPM Package (Unity 2022.3+)** from the dropdown
+4. Click **Install Plugin** and select your Unity project root
+5. Switch to Unity — the Package Manager resolves the package automatically
 
-This method copies plugin files directly into your project's Assets folder. Use this for Unity 2019–2021 or if you prefer a self-contained install.
+---
 
-1. Start your Unity Project and leave it running in the background.
-2. Start Daz Studio and select File -> Send To -> DazToUnity.
-3. Enable the Advanced Settings checkbox.
-4. Select your Unity Version and Rendering Pipeline from the dropdown.
-5. Click "Install Plugin".  A window will popup for you to select a Unity Project to which to install the Unity plugin.
-6. Navigate to your Unity Project's root folder.
-7. Click "Select Folder".  You will see a confirmation dialog stating if the plugin was successfully copied to your Unity Project.
-8. Depending on your machine and setup, a Unity Import Package dialog may automatically appear.  Click Import.
-9. If an Import Package dialog does not appear, switch to your Unity Project and navigate to the `Assets\Daz3D\Support` folder.
-10. Inside that folder, you will find installation packages for all render-pipelines:
-    - For HDRP: double-click "DazToUnity HDRP.unitypackage" and click Import.
-    - For URP: double-click "DazToUnity URP.unitypackage" and click Import.
-    - For Built-In Render-pipeline: double-click "DazToUnity Standard Shader.unitypackage" and click Import.
-11. If a popup window asks you to Update the Scripts or API, then click "Yes, for these and other all files".
-12. For HDRP, you will also need to add a diffusion profile: Unity 2019: This list is found in the Material section of each HD RenderPipeline Asset, which can be found in the Quality->HDRP panel of the Project Settings dialog. Unity 2020 and above: This list is found at the bottom of the HDRP Default Settings panel in the Project Settings dialog.
+#### Option B — .unitypackage (Classic, Unity 2019–2021)
 
+Use this if you can't use UPM or prefer a self-contained install.
 
-# 3. How to Use
-1. Start Daz Studio, add a Figure or Prop to your scene.
-2. Select the top-most node for your Figure or Prop in the Scene Pane.
-3. Select from the main menu: File->Send To->Daz to Unity.
-4. Select the Asset Folder for your project.
-5. Select the desired Asset Type. Tip: for Figures, select "Skeletal Mesh".  For Animation, select "Animation".  For all others, select "Static Mesh".
-6. To enable Morphs or Subdivision levels, click the CheckBox to Enable that option, then click the "Choose Morphs" or "Choose Subdivisions" button to configure your selections.
-7. Click Accept, then wait for a dialog popup to notify you when to switch to the Unity Window.
+1. Open your Unity project and leave it running
+2. In Daz Studio: **File → Send To → Daz To Unity**
+3. Enable **Advanced Settings**
+4. Select your Unity version and render pipeline from the dropdown
+5. Click **Install Plugin** and select your Unity project root
+6. A Unity Import Package dialog should appear — click **Import**
+7. If it doesn't appear automatically, go to `Assets/Daz3D/Support/` and double-click the matching package:
+   - `DazToUnity HDRP.unitypackage`
+   - `DazToUnity URP.unitypackage`
+   - `DazToUnity Standard Shader.unitypackage`
+8. For HDRP: add the Daz diffusion profile to your HDRP asset's diffusion profile list (Project Settings → HDRP Default Settings)
 
+---
 
-# 4. How to Build
-Requirements: Daz Studio 4.5+ SDK, Qt 4.8.1, Autodesk Fbx SDK, Pixar OpenSubdiv Library, CMake, C++ development environment
+## 3. How to Use
 
-Download or clone the DazToUnity github repository to your local machine. The Daz Bridge Library is linked as a git submodule to the DazToBridge repository. Depending on your git client, you may have to use `git submodule init` and `git submodule update` to properly clone the Daz Bridge Library.
+1. Open Daz Studio and add a Figure or Prop to your scene
+2. Select the top node of your Figure or Prop in the Scene pane
+3. Go to **File → Send To → Daz To Unity**
+4. Select the Asset Folder for your Unity project
+5. Choose the Asset Type:
+   - **Skeletal Mesh** — for rigged figures
+   - **Animation** — for animation clips
+   - **Static Mesh** — for props and environments
+6. Optionally enable Morphs or Subdivision levels via the checkboxes
+7. Click **Accept** and wait for the confirmation dialog before switching to Unity
 
-Use CMake to configure the project files. Daz Bridge Library will be automatically configured to static-link with DazToUnity. If using the CMake gui, you will be prompted for folder paths to dependencies: Daz SDK, Qt 4.8.1, Fbx SDK and OpenSubdiv during the Configure process.
+Unity will automatically import the FBX and `.dtu` file, apply materials, and set up the prefab.
 
+---
 
-# 5. How to QA Test
-The Test folder contains a `QA Manual Test Cases.md` document with instructions for performaing manual tests.  The Test folder also contains subfolders for UnitTests, TestCases and Results. To run automated Test Cases, run Daz Studio and load the `Test/testcases/test_runner.dsa` script, configure the sIncludePath on line 4, then execute the script. Results will be written to report files stored in the `Test/Reports` subfolder.
+## 4. How to Build
 
-To run UnitTests, you must first build special Debug versions of the DzBridge-Unity and DzBridge Static sub-projects with Visual Studio configured for C++ Code Generation: Enable C++ Exceptions: Yes with SEH Exceptions (/EHa). This enables the memory exception handling features which are used during null pointer argument tests of the UnitTests. Once the special Debug version of DazToUnity dll is built and installed, run Daz Studio and load the `Test/UnitTests/RunUnitTests.dsa` script. Configure the sIncludePath and sOutputPath on lines 4 and 5, then execute the script. Several UI dialog prompts will appear on screen as part of the UnitTests of their related functions. Just click OK or Cancel to advance through them. Results will be written to report files stored in the `Test/Reports` subfolder.
+**Requirements:** Daz Studio 4.5+ SDK · Qt 4.8.1 · Autodesk FBX SDK 2020+ · Pixar OpenSubdiv · CMake 3.4+ · Visual Studio 2017+
 
-For more information on running QA test scripts and writing your own test scripts, please refer to `How To Use QA Test Scripts.md` and `QA Script Documentation and Examples.dsa` which are located in the Daz Bridge Library repository: https://github.com/daz3d/DazBridgeUtils.
+```bash
+git clone --recurse-submodules https://github.com/Knuffelpanda/DazToUnity.git
+cmake -B build \
+  -DDAZ_SDK_DIR=<path> \
+  -DFBX_SDK_DIR=<path> \
+  -DOPENSUBDIV_DIR=<path>
+cmake --build build --config Release
+```
 
-Special Note: The QA Report Files generated by the UnitTest and TestCase scripts have been designed and formatted so that the QA Reports will only change when there is a change in a test result.  This allows Github to conveniently track the history of test results with source-code changes, and allows developers and QA testers to notified by Github or their git client when there are any changes and the exact test that changed its result.
+The build output is `dzunitybridge.dll` (Windows) or `dzunitybridge.dylib` (macOS).
+Set `-DDAZ_STUDIO_EXE_DIR=<path>` to auto-deploy the plugin to your Daz Studio plugins folder after build.
 
-# 6. How to Modify and Develop
-The Daz Studio Plugin source code is contained in the `DazStudioPlugin` folder. The Unity Package source code and resources are available in a separate github repository. Modifications to the Unity Package files can be embedded in the Daz Studio Plugin by exporting a .UnityPackage file from inside Unity. Then copying the updated UnityPackage to the `DazStudioPlugin/Resources` folder and replacing the existing .UnityPackage file there.
+---
 
-The DazToUnity Bridge uses a branch of the Daz Bridge Library which is modified to use the "DzUnityNS" namespace. This ensures that there are no C++ Namespace collisions when other plugins based on the Daz Bridge Library are also loaded in Daz Studio. In order to link and share C++ classes between this plugin and the Daz Bridge Library, a custom `CPP_PLUGIN_DEFINITION()` macro is used instead of the standard DZ_PLUGIN_DEFINITION macro and usual .DEF (DzUnityBridge.def) file. NOTE: Use of the DZ_PLUGIN_DEFINITION macro and DEF file use will disable C++ class export in the Visual Studio compiler.
+## 5. How to Test
+
+**Unit tests (Windows, C++):**
+- Build in Debug mode with `/EHa` (C++ exceptions with SEH) enabled
+- In Daz Studio, load `Test/UnitTests/RunUnitTests.dsa`
+- Set `sIncludePath` and `sOutputPath` on lines 4–5, then run
+- Click through any dialog prompts that appear — they are part of the tests
+
+**Automated test cases (Daz Script):**
+- In Daz Studio, load `Test/TestCases/test_runner.dsa`
+- Set `sIncludePath` on line 4, then run
+- Results are written to `Test/Reports/` as JSON and TXT
+
+**Manual QA:**
+- See `Test/QA Manual Test Cases.md` for 16 test scenarios
+
+---
+
+## 6. How to Develop
+
+**C++ plugin (`DazStudioPlugin/`):**
+- `DzUnityAction` — triggers the export workflow via File → Send To → Daz To Unity
+- `DzUnityDialog` — export configuration UI
+- The `DzUnityNS` namespace prevents collisions when multiple bridge plugins are loaded simultaneously
+- Uses `CPP_PLUGIN_DEFINITION()` instead of `DZ_PLUGIN_DEFINITION` to enable C++ class export across the bridge library boundary
+
+**C# Unity plugin (`UnityPlugin/`):**
+- `Daz3DDTUImporter` — ScriptedImporter for `.dtu` files, drives the entire import pipeline
+- `DTUConverter` — material and shader assignment
+- `RenderPipelineHelper` — cached runtime pipeline detection, single source of truth for all pipeline branching
+- `DetectRenderPipeline` — manages scripting defines for backwards compatibility
+
+**Modifying shaders:**
+- HDRP/URP shaders are Shader Graph assets in `UnityPlugin/Shaders/uDTU/`
+- Built-in shaders are ShaderLab files in the same folder (`uDTU BuiltIn.*.shader`)
+- All shaders share the same `_`-prefixed property names so `DTUConverter` works identically across pipelines
+
+**Updating the .unitypackage files:**
+- Make changes inside Unity
+- Export a new `.unitypackage` from Unity
+- Replace the matching file in `DazStudioPlugin/Resources/`
