@@ -14,17 +14,6 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Diagnose runner environment
-        shell: sh
-        run: |
-          uname -a || true
-          echo "PATH=$PATH"
-          which bash || echo "no bash"
-          which sh || echo "no sh"
-          which cmake || echo "no cmake"
-          which git || echo "no git"
-          ls /c/Windows/System32/cmd.exe 2>/dev/null && echo "cmd.exe exists at /c/Windows/System32" || echo "no cmd.exe at /c/Windows/System32"
-
       - name: Verify Daz Studio SDK
         shell: cmd
         run: |
