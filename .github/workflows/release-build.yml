@@ -6,32 +6,32 @@ on:
 
 jobs:
   build-windows:
-    runs-on: windows-latest
+    runs-on: [self-hosted, windows]
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Cache Daz Studio SDK
-        id: cache-daz-sdk
-        uses: actions/cache@v4
-        with:
-          path: C:\DazSDK
-          key: daz-sdk-4.5
-
-      - name: Download Daz Studio SDK
-        if: steps.cache-daz-sdk.outputs.cache-hit != 'true'
+      - name: Verify Daz Studio SDK
         shell: pwsh
         run: |
-          # The Daz SDK must be provided as a repository secret (base64-encoded zip)
-          # or downloaded from a known URL. For now we check if it's cached.
-          if (-not (Test-Path "C:\DazSDK")) {
-            Write-Error "Daz Studio SDK not found. Please populate the cache manually or add a download step."
+          if (-not (Test-Path "$env:DAZ_SDK_DIR")) {
+            Write-Error "Daz Studio SDK not found at '$env:DAZ_SDK_DIR'. Set the DAZ_SDK_DIR environment variable on the runner."
             exit 1
           }
+          Write-Host "Daz Studio SDK found at $env:DAZ_SDK_DIR"
+
+      - name: Cache FBX SDK
+        id: cache-fbx-sdk
+        uses: actions/cache@v4
+        with:
+          path: C:\FbxSdk
+          key: fbx-sdk-2020.3.9
 
       - name: Install FBX SDK
+        if: steps.cache-fbx-sdk.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           $fbxUrl = "https://damassets.autodesk.net/content/dam/autodesk/www/files/fbx202039_fbxsdk_vs2022_win.exe"
@@ -39,11 +39,19 @@ jobs:
           Invoke-WebRequest -Uri $fbxUrl -OutFile $installer
           Start-Process -FilePath $installer -ArgumentList "/S","/D=C:\FbxSdk" -Wait
 
+      - name: Cache OpenSubdiv
+        id: cache-opensubdiv
+        uses: actions/cache@v4
+        with:
+          path: C:\OpenSubdiv\install
+          key: opensubdiv-3.6.0
+
       - name: Build OpenSubdiv
+        if: steps.cache-opensubdiv.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
-          git clone --depth 1 https://github.com/PixarAnimationStudios/OpenSubdiv.git C:\OpenSubdiv
-          cmake -B C:\OpenSubdiv\build -S C:\OpenSubdiv `
+          git clone --depth 1 --branch v3_6_0 https://github.com/PixarAnimationStudios/OpenSubdiv.git C:\OpenSubdiv\src
+          cmake -B C:\OpenSubdiv\build -S C:\OpenSubdiv\src `
             -DNO_PTEX=ON -DNO_DOC=ON -DNO_OMP=ON -DNO_TBB=ON -DNO_CUDA=ON `
             -DNO_OPENCL=ON -DNO_CLEW=ON -DNO_GLEW=ON -DNO_GLFW=ON `
             -DNO_GLFW_X11=ON -DNO_EXAMPLES=ON -DNO_TUTORIALS=ON `
@@ -55,7 +63,7 @@ jobs:
         shell: pwsh
         run: |
           cmake -B build -S . `
-            -DDAZ_SDK_DIR="C:\DazSDK" `
+            -DDAZ_SDK_DIR="$env:DAZ_SDK_DIR" `
             -DFBX_SDK_DIR="C:\FbxSdk" `
             -DFBX_SDK_LIB="C:\FbxSdk\lib\x64\release\libfbxsdk-md.lib" `
             -DFBX_SDK_XMLLIB="C:\FbxSdk\lib\x64\release\libxml2-md.lib" `
