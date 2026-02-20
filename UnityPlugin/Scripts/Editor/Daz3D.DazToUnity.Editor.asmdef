@@ -1,0 +1,19 @@
+{
+  "name": "Daz3D.DazToUnity.Editor",
+  "rootNamespace": "Daz3D",
+  "references": [
+    "SimpleJSON",
+    "Daz3D.DazToUnity.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

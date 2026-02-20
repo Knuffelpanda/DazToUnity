@@ -52,6 +52,7 @@ protected:
 	QCheckBox* installUnityFilesCheckBox;
 
 	bool IsValidProjectFolder(QString sProjectFolderPath);
+	bool installUpmPackage(const QString& sProjectFolder);
 	virtual void setDisabled(bool) override;
 
 #ifdef UNITTEST_DZBRIDGE

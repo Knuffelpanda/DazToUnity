@@ -141,6 +141,7 @@ DzUnityDialog::DzUnityDialog(QWidget* parent) :
 	 m_TargetSoftwareVersionCombo->addItem("2019 HDRP (High-Definition Rendering Pipeline)");
 	 m_TargetSoftwareVersionCombo->addItem("2019 URP (Universal Rendering Pipeline)");
 	 m_TargetSoftwareVersionCombo->addItem("2019 Built-In (Standard Shader)");
+	 m_TargetSoftwareVersionCombo->addItem("UPM Package (Unity 2022.3+)");
 	 showTargetPluginInstaller(true);
 
 	 // Make the dialog fit its contents, with a minimum width, and lock it down
@@ -424,6 +425,23 @@ QMessageBox::Abort);
 			return;
 	}
 
+	// UPM Package: modify manifest.json instead of copying .unitypackage files
+	if (softwareVersion.contains("UPM"))
+	{
+		if (installUpmPackage(directoryName))
+		{
+			// SET ASSET PATH widget for convenience
+			assetsFolderEdit->setText(directoryName + "/Assets");
+			if (settings) settings->setValue("AssetsPath", directoryName + "/Assets");
+
+			QMessageBox::information(0, "Unity Bridge Plugin Installer",
+				tr("UPM package entry added to manifest.json.\n\n"
+				   "Please switch to Unity \u2014 the Package Manager will download "
+				   "the Daz To Unity Bridge package automatically."));
+		}
+		return;
+	}
+
 	// SET ASSET PATH widget for convenience
 	assetsFolderEdit->setText(directoryName + "/Assets");
 	if (settings) settings->setValue("AssetsPath", directoryName + "/Assets");
@@ -528,6 +546,72 @@ Unity Plugin to:</h4>") +
 	}
 
 	return;
+}
+
+bool DzUnityDialog::installUpmPackage(const QString& sProjectFolder)
+{
+	QString manifestPath = sProjectFolder + "/Packages/manifest.json";
+	QFile file(manifestPath);
+
+	if (!file.exists())
+	{
+		QMessageBox::warning(0, "Error",
+			tr("Could not find Packages/manifest.json in the selected project."));
+		return false;
+	}
+
+	// Read manifest
+	if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+	{
+		QMessageBox::warning(0, "Error",
+			tr("Could not read manifest.json."));
+		return false;
+	}
+	QString content = QString::fromUtf8(file.readAll());
+	file.close();
+
+	// Check if already installed
+	QString packageName = "com.daz3d.daz-to-unity";
+	if (content.contains(packageName))
+	{
+		QMessageBox::information(0, "Unity Bridge Plugin Installer",
+			tr("The Daz To Unity package is already registered in manifest.json."));
+		return true;
+	}
+
+	// Find "dependencies" : { and insert after the opening brace
+	int depIndex = content.indexOf("\"dependencies\"");
+	if (depIndex == -1)
+	{
+		QMessageBox::warning(0, "Error",
+			tr("Could not find dependencies section in manifest.json."));
+		return false;
+	}
+
+	int braceIndex = content.indexOf('{', depIndex);
+	if (braceIndex == -1)
+	{
+		QMessageBox::warning(0, "Error",
+			tr("Malformed manifest.json."));
+		return false;
+	}
+
+	// Insert entry after opening brace
+	QString gitUrl = "https://github.com/Knuffelpanda/DazToUnity.git?path=UnityPlugin";
+	QString entry = QString("\n    \"%1\": \"%2\",").arg(packageName).arg(gitUrl);
+	content.insert(braceIndex + 1, entry);
+
+	// Write back
+	if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate))
+	{
+		QMessageBox::warning(0, "Error",
+			tr("Could not write to manifest.json."));
+		return false;
+	}
+	file.write(content.toUtf8());
+	file.close();
+
+	return true;
 }
 
 void DzUnityDialog::HandleOpenIntermediateFolderButton(QString sFolderPath)

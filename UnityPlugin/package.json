@@ -1,0 +1,12 @@
+{
+  "name": "com.daz3d.daz-to-unity",
+  "version": "2024.1.0",
+  "displayName": "Daz To Unity Bridge",
+  "description": "Transfer Daz Studio characters and props to Unity",
+  "unity": "2022.3",
+  "author": {
+    "name": "Daz 3D / Knuffelpanda",
+    "url": "https://github.com/Knuffelpanda/DazToUnity"
+  },
+  "keywords": ["daz", "daz3d", "bridge", "character", "fbx"]
+}

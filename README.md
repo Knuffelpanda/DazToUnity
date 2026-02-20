@@ -26,8 +26,43 @@ The DazToUnity Bridge consists of two parts: a Daz Studio plugin which exports a
 
 
 ### Unity Plugin ###
-- There is now an improved Unity plugin installer which can be accessed in the Advanced Settings section of the DazToUnity Bridge dialog in Daz Studio.
-1. Start your Unity Project and leave it in running in the background.
+
+There are two ways to install the Unity plugin: **UPM (recommended)** or the classic **.unitypackage** method.
+
+#### Option A: UPM / Unity Package Manager (Recommended — Unity 2022.3+) ####
+
+The UPM method installs the plugin as a proper Unity package. It stays up to date automatically and does not copy files into your Assets folder.
+
+**From Daz Studio (automatic):**
+1. Start Daz Studio and select File -> Send To -> DazToUnity.
+2. Enable the Advanced Settings checkbox.
+3. Select **"UPM Package (Unity 2022.3+)"** from the dropdown.
+4. Click "Install Plugin" and select your Unity Project's root folder.
+5. Switch to Unity — the Package Manager will download the Daz To Unity Bridge package automatically.
+
+**From Unity (manual):**
+1. Open your Unity project.
+2. Go to **Window -> Package Manager**.
+3. Click the **+** button (top-left) and select **"Add package from git URL..."**.
+4. Paste the following URL and click Add:
+   ```
+   https://github.com/Knuffelpanda/DazToUnity.git?path=UnityPlugin
+   ```
+5. Unity will download and install the package. It will appear as "Daz To Unity" in the Package Manager.
+
+**Or edit `manifest.json` directly:**
+1. Open `<YourProject>/Packages/manifest.json` in a text editor.
+2. Add this line inside the `"dependencies"` block:
+   ```json
+   "com.daz3d.daz-to-unity": "https://github.com/Knuffelpanda/DazToUnity.git?path=UnityPlugin"
+   ```
+3. Save the file and switch to Unity. The package will be resolved automatically.
+
+#### Option B: .unitypackage (Classic method) ####
+
+This method copies plugin files directly into your project's Assets folder. Use this for Unity 2019–2021 or if you prefer a self-contained install.
+
+1. Start your Unity Project and leave it running in the background.
 2. Start Daz Studio and select File -> Send To -> DazToUnity.
 3. Enable the Advanced Settings checkbox.
 4. Select your Unity Version and Rendering Pipeline from the dropdown.
@@ -37,9 +72,9 @@ The DazToUnity Bridge consists of two parts: a Daz Studio plugin which exports a
 8. Depending on your machine and setup, a Unity Import Package dialog may automatically appear.  Click Import.
 9. If an Import Package dialog does not appear, switch to your Unity Project and navigate to the `Assets\Daz3D\Support` folder.
 10. Inside that folder, you will find installation packages for all render-pipelines:
-   - For HDRP: double-click "DazToUnity HDRP.unitypackage" and click Import.
-   - For URP: double-click "DazToUnity URP.unitypackage" and click Import.
-   - For Built-In Render-pipline: double-click "DazToUnity Standard Shader.unitypackage" and click Import.
+    - For HDRP: double-click "DazToUnity HDRP.unitypackage" and click Import.
+    - For URP: double-click "DazToUnity URP.unitypackage" and click Import.
+    - For Built-In Render-pipeline: double-click "DazToUnity Standard Shader.unitypackage" and click Import.
 11. If a popup window asks you to Update the Scripts or API, then click "Yes, for these and other all files".
 12. For HDRP, you will also need to add a diffusion profile: Unity 2019: This list is found in the Material section of each HD RenderPipeline Asset, which can be found in the Quality->HDRP panel of the Project Settings dialog. Unity 2020 and above: This list is found at the bottom of the HDRP Default Settings panel in the Project Settings dialog.
 
