@@ -14,6 +14,17 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Diagnose runner environment
+        run: |
+          uname -a || true
+          echo "PATH=$PATH"
+          which bash || echo "no bash"
+          which sh || echo "no sh"
+          which cmd || echo "no cmd"
+          which powershell || echo "no powershell"
+          which cmake || echo "no cmake"
+          ls /proc/version 2>/dev/null || true
+
       - name: Verify Daz Studio SDK
         shell: cmd
         run: |
