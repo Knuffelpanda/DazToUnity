@@ -4,37 +4,22 @@ setlocal EnableDelayedExpansion
 REM ============================================================
 REM  DazToUnity - Windows Local Build Script
 REM ============================================================
-REM  Configurable via environment variables (or edit defaults):
+REM  Override any default via environment variable, e.g.:
+REM    set DAZ_SDK_DIR=C:\MySDK && scripts\build-windows.bat
 REM
-REM    DAZ_SDK_DIR   Path to Daz Studio SDK root (REQUIRED)
-REM    FBX_SDK_DIR   Path to FBX SDK            (default: C:\FbxSdk)
-REM    OSD_DIR       Path to OpenSubdiv root     (default: C:\OpenSubdiv)
-REM    BUILD_DIR     CMake build folder           (default: build)
-REM
-REM  Example:
-REM    set DAZ_SDK_DIR=C:\DazStudio4.5+SDK
-REM    scripts\build-windows.bat
+REM  Variables:
+REM    DAZ_SDK_DIR   Path to Daz Studio SDK root
+REM    FBX_SDK_DIR   Path to FBX SDK
+REM    OSD_DIR       Path to OpenSubdiv root (must have install\ subfolder)
+REM    BUILD_DIR     CMake build folder
+REM    RELEASE_TAG   If set, uploads .dll to that GitHub release (e.g. v1.0.0)
 REM ============================================================
 
-REM ---- Validate required variables ----
-if "%DAZ_SDK_DIR%"=="" (
-    echo ERROR: DAZ_SDK_DIR is not set.
-    echo Set it to the root of the Daz Studio SDK, for example:
-    echo   set DAZ_SDK_DIR=C:\DazStudio4.5+SDK
-    exit /b 1
-)
-
-if not exist "%DAZ_SDK_DIR%\" (
-    echo ERROR: DAZ_SDK_DIR does not exist: %DAZ_SDK_DIR%
-    exit /b 1
-)
-
-REM ---- Apply defaults ----
-if "%FBX_SDK_DIR%"=="" set "FBX_SDK_DIR=C:\FbxSdk"
-if "%OSD_DIR%"==""     set "OSD_DIR=C:\OpenSubdiv"
+REM ---- Defaults ----
+if "%DAZ_SDK_DIR%"=="" set "DAZ_SDK_DIR=D:\DAZ 3D\Library\DAZStudio4.5+ SDK"
+if "%FBX_SDK_DIR%"=="" set "FBX_SDK_DIR=C:\Program Files\Autodesk\FBX\FBX SDK\2020.3.9"
+if "%OSD_DIR%"==""     set "OSD_DIR=D:\Github\OpenSubdiv"
 if "%BUILD_DIR%"==""   set "BUILD_DIR=build"
-REM  RELEASE_TAG (optional) — if set, uploads the .dll to that GitHub release
-REM  Example: set RELEASE_TAG=v1.2.0
 
 echo.
 echo === DazToUnity Windows Build ===
@@ -42,7 +27,15 @@ echo DAZ_SDK_DIR : %DAZ_SDK_DIR%
 echo FBX_SDK_DIR : %FBX_SDK_DIR%
 echo OSD_DIR     : %OSD_DIR%
 echo BUILD_DIR   : %BUILD_DIR%
+if not "%RELEASE_TAG%"=="" echo RELEASE_TAG : %RELEASE_TAG%
 echo.
+
+REM ---- Validate DAZ SDK ----
+if not exist "%DAZ_SDK_DIR%\" (
+    echo ERROR: DAZ_SDK_DIR does not exist: %DAZ_SDK_DIR%
+    echo Override with: set DAZ_SDK_DIR=^<path^>
+    exit /b 1
+)
 
 REM ---- Check / Install FBX SDK ----
 if not exist "%FBX_SDK_DIR%\lib\x64\release\libfbxsdk-md.lib" (
@@ -53,7 +46,7 @@ if not exist "%FBX_SDK_DIR%\lib\x64\release\libfbxsdk-md.lib" (
         echo Download manually from: https://www.autodesk.com/developer-network/platform-technologies/fbx-sdk-2020-3-4
         exit /b 1
     )
-    echo Installing FBX SDK to %FBX_SDK_DIR% (silent install)...
+    echo Installing FBX SDK to %FBX_SDK_DIR% ^(silent install^)...
     start /wait "" "%TEMP%\fbxsdk_installer.exe" /S /D=%FBX_SDK_DIR%
     if not exist "%FBX_SDK_DIR%\lib\x64\release\libfbxsdk-md.lib" (
         echo ERROR: FBX SDK install completed but library not found.
@@ -78,7 +71,7 @@ if not exist "%OSD_DIR%\install\lib\osdCPU.lib" (
         )
     )
 
-    cmake -B "%OSD_DIR%\build" -S "%OSD_DIR%\src" ^
+    cmake -B "%OSD_DIR%\build_cmake" -S "%OSD_DIR%\src" ^
         -DNO_PTEX=ON -DNO_DOC=ON -DNO_OMP=ON -DNO_TBB=ON -DNO_CUDA=ON ^
         -DNO_OPENCL=ON -DNO_CLEW=ON -DNO_GLEW=ON -DNO_GLFW=ON ^
         -DNO_GLFW_X11=ON -DNO_EXAMPLES=ON -DNO_TUTORIALS=ON ^
@@ -89,7 +82,7 @@ if not exist "%OSD_DIR%\install\lib\osdCPU.lib" (
         exit /b 1
     )
 
-    cmake --build "%OSD_DIR%\build" --config Release --target install
+    cmake --build "%OSD_DIR%\build_cmake" --config Release --target install
     if errorlevel 1 (
         echo ERROR: OpenSubdiv build failed.
         exit /b 1
@@ -108,7 +101,7 @@ cmake -B %BUILD_DIR% -S . ^
     "-DFBX_SDK_XMLLIB=%FBX_SDK_DIR%\lib\x64\release\libxml2-md.lib" ^
     "-DOPENSUBDIV_DIR=%OSD_DIR%\install\include" ^
     "-DOPENSUBDIV_LIB=%OSD_DIR%\install\lib\osdCPU.lib" ^
-    -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+    "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
 if errorlevel 1 (
     echo ERROR: CMake configure failed.
     exit /b 1
