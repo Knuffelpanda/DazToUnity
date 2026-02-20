@@ -15,7 +15,7 @@ jobs:
           submodules: recursive
 
       - name: Verify Daz Studio SDK
-        shell: pwsh
+        shell: powershell
         run: |
           if (-not (Test-Path "$env:DAZ_SDK_DIR")) {
             Write-Error "Daz Studio SDK not found at '$env:DAZ_SDK_DIR'. Set the DAZ_SDK_DIR environment variable on the runner."
@@ -32,7 +32,7 @@ jobs:
 
       - name: Install FBX SDK
         if: steps.cache-fbx-sdk.outputs.cache-hit != 'true'
-        shell: pwsh
+        shell: powershell
         run: |
           $fbxUrl = "https://damassets.autodesk.net/content/dam/autodesk/www/files/fbx202039_fbxsdk_vs2022_win.exe"
           $installer = "$env:TEMP\fbxsdk.exe"
@@ -48,7 +48,7 @@ jobs:
 
       - name: Build OpenSubdiv
         if: steps.cache-opensubdiv.outputs.cache-hit != 'true'
-        shell: pwsh
+        shell: powershell
         run: |
           git clone --depth 1 --branch v3_6_0 https://github.com/PixarAnimationStudios/OpenSubdiv.git C:\OpenSubdiv\src
           cmake -B C:\OpenSubdiv\build -S C:\OpenSubdiv\src `
@@ -60,7 +60,7 @@ jobs:
           cmake --build C:\OpenSubdiv\build --config Release --target install
 
       - name: Configure DazToUnity
-        shell: pwsh
+        shell: powershell
         run: |
           cmake -B build -S . `
             -DDAZ_SDK_DIR="$env:DAZ_SDK_DIR" `
@@ -72,7 +72,7 @@ jobs:
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
       - name: Build DazToUnity
-        shell: pwsh
+        shell: powershell
         run: |
           cmake --build build --config Release
 
