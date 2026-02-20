@@ -25,6 +25,7 @@
 #include "dzfacetshape.h"
 #include "dzfacetmesh.h"
 #include "dzfacegroup.h"
+#include "dzmap.h"
 
 #include <QtCore/qfile.h>
 #include <QtCore/qfileinfo.h>
@@ -33,6 +34,11 @@
 #include <cfloat>
 #include <cmath>
 #include <cstring>
+
+// SDK type aliases used below:
+//   DzPnt3  = typedef float DzPnt3[3]   (x==[0], y==[1], z==[2])
+//   DzPnt2  = typedef float DzPnt2[2]   (u==[0], v==[1])
+//   DzFacet fields: m_vertIdx[4], m_uvwIdx[4], m_normIdx[4]
 
 // ---------------------------------------------------------------------------
 // Construction
@@ -102,19 +108,17 @@ bool DzGLTFExporter::buildPrimitives(DzNode* node,
     }
 
     // --- vertex positions ---
+    // DzPnt3 = typedef float DzPnt3[3]; access as srcPos[i][0..2]
     int numVerts = mesh->getNumVertices();
-    // DzPnt3 fields: m_x, m_y, m_z  (adjust if your SDK uses different names)
     const DzPnt3* srcPos = mesh->getVerticesPtr();
 
-    // --- UV coordinates (first UV set) ---
+    // --- UV coordinates via DzMap (first UV set) ---
     int numUVs = 0;
     const DzPnt2* srcUVs = nullptr;
-    if (mesh->getNumUVSets() > 0) {
-        DzUVSet* uvSet = mesh->getUVSet(0);
-        if (uvSet) {
-            numUVs = uvSet->getNumValues();
-            srcUVs = uvSet->getValuesPtr();
-        }
+    DzMap* uvMap = mesh->getUVs();
+    if (uvMap) {
+        numUVs = uvMap->getNumValues();
+        srcUVs = uvMap->getPnt2ArrayPtr();
     }
 
     // --- facets ---
@@ -122,7 +126,7 @@ bool DzGLTFExporter::buildPrimitives(DzNode* node,
     const DzFacet* facets = mesh->getFacetsPtr();
 
     // --- material groups ---
-    int numGroups = mesh->getNumMaterialGroups();
+    int numGroups    = mesh->getNumMaterialGroups();
     int numShapeMats = shape->getNumMaterials();
 
     // Build one GltfPrimData per material group
@@ -133,13 +137,13 @@ bool DzGLTFExporter::buildPrimitives(DzNode* node,
             continue;
 
         GltfPrimData prim;
-        prim.materialName     = group->getName();
-        prim.baseColor[0]     = 1.0f;
-        prim.baseColor[1]     = 1.0f;
-        prim.baseColor[2]     = 1.0f;
-        prim.baseColor[3]     = 1.0f;
-        prim.metallicFactor   = 0.0f;
-        prim.roughnessFactor  = 0.5f;
+        prim.materialName    = group->getName();
+        prim.baseColor[0]    = 1.0f;
+        prim.baseColor[1]    = 1.0f;
+        prim.baseColor[2]    = 1.0f;
+        prim.baseColor[3]    = 1.0f;
+        prim.metallicFactor  = 0.0f;
+        prim.roughnessFactor = 0.5f;
 
         // Find matching DzMaterial by name
         for (int mi = 0; mi < numShapeMats; ++mi) {
@@ -151,7 +155,7 @@ bool DzGLTFExporter::buildPrimitives(DzNode* node,
         }
 
         // Triangulate faces in this group
-        int numFaces = group->count();
+        int numFaces    = group->count();
         const int* faceIdx = group->getIndicesPtr();
 
         for (int f = 0; f < numFaces; ++f)
@@ -162,10 +166,9 @@ bool DzGLTFExporter::buildPrimitives(DzNode* node,
 
             const DzFacet& face = facets[fi];
 
-            // DzFacet field names — adjust if your SDK version differs:
-            //   face.vertIdx[4]  (vertex indices; [3]==-1 means triangle)
-            //   face.uvIdx[4]    (UV indices)
-            bool isQuad = (face.vertIdx[3] != -1);
+            // DzFacet fields: m_vertIdx[4], m_uvwIdx[4]
+            // m_vertIdx[3] == -1 means triangle; >= 0 means quad
+            bool isQuad  = (face.m_vertIdx[3] >= 0);
             int triCount = isQuad ? 2 : 1;
 
             // Two triangle fans from the quad: (0,1,2) and (0,2,3)
@@ -173,16 +176,16 @@ bool DzGLTFExporter::buildPrimitives(DzNode* node,
 
             for (int t = 0; t < triCount; ++t)
             {
-                // Collect the 3 vertex positions first (for normal computation)
+                // Collect the 3 vertex positions (for flat normal computation)
                 float pa[3], pb[3], pc[3];
-                const float* pts[3] = { pa, pb, pc };
+                float* pts[3] = { pa, pb, pc };
                 for (int v = 0; v < 3; ++v) {
-                    int vi = triMap[t][v];
-                    int idx = face.vertIdx[vi];
+                    int vi  = triMap[t][v];
+                    int idx = face.m_vertIdx[vi];
                     if (idx < 0 || idx >= numVerts) idx = 0;
-                    pts[v][0] = srcPos[idx].m_x * m_fScale;
-                    pts[v][1] = srcPos[idx].m_y * m_fScale;
-                    pts[v][2] = srcPos[idx].m_z * m_fScale;
+                    pts[v][0] = srcPos[idx][0] * m_fScale;
+                    pts[v][1] = srcPos[idx][1] * m_fScale;
+                    pts[v][2] = srcPos[idx][2] * m_fScale;
                 }
 
                 float n[3];
@@ -191,25 +194,27 @@ bool DzGLTFExporter::buildPrimitives(DzNode* node,
                 for (int v = 0; v < 3; ++v)
                 {
                     int vi    = triMap[t][v];
-                    int vIdx  = face.vertIdx[vi];
-                    int uvIdx = (srcUVs && face.uvIdx[vi] >= 0) ? face.uvIdx[vi] : -1;
+                    int vIdx  = face.m_vertIdx[vi];
+                    int uvIdx = (srcUVs && face.m_uvwIdx[vi] >= 0)
+                                    ? face.m_uvwIdx[vi] : -1;
 
                     if (vIdx < 0 || vIdx >= numVerts) vIdx = 0;
 
-                    // Position
-                    prim.positions.append(srcPos[vIdx].m_x * m_fScale);
-                    prim.positions.append(srcPos[vIdx].m_y * m_fScale);
-                    prim.positions.append(srcPos[vIdx].m_z * m_fScale);
+                    // Position (DzPnt3 == float[3])
+                    prim.positions.append(srcPos[vIdx][0] * m_fScale);
+                    prim.positions.append(srcPos[vIdx][1] * m_fScale);
+                    prim.positions.append(srcPos[vIdx][2] * m_fScale);
 
                     // Flat normal
                     prim.normals.append(n[0]);
                     prim.normals.append(n[1]);
                     prim.normals.append(n[2]);
 
-                    // UV (V flipped: glTF origin is top-left, Daz is bottom-left)
+                    // UV: glTF origin is top-left, Daz is bottom-left -> flip V
+                    // DzPnt2 == float[2]
                     if (uvIdx >= 0 && uvIdx < numUVs) {
-                        prim.texcoords.append(srcUVs[uvIdx].m_x);
-                        prim.texcoords.append(1.0f - srcUVs[uvIdx].m_y);
+                        prim.texcoords.append(srcUVs[uvIdx][0]);
+                        prim.texcoords.append(1.0f - srcUVs[uvIdx][1]);
                     } else {
                         prim.texcoords.append(0.0f);
                         prim.texcoords.append(0.0f);
@@ -269,10 +274,6 @@ void DzGLTFExporter::extractMaterial(DzMaterial* mat, GltfPrimData& prim)
         if (ip && ip->getValue())
             prim.normalTexturePath = ip->getValue()->getFilename();
     }
-
-    // TODO: extractSkeleton(node)  — add bone node hierarchy
-    // TODO: extractMorphs(mesh)    — add morph target accessors
-    // TODO: extractAnimations(node)— add animation samplers/channels
 }
 
 // ---------------------------------------------------------------------------
@@ -315,7 +316,8 @@ QByteArray DzGLTFExporter::buildGLB(const QVector<GltfPrimData>& prims,
                     if (v > am.maxXYZ[j]) am.maxXYZ[j] = v;
                 }
             }
-            for (float v : prim.positions) appendFloat32LE(binBuf, v);
+            for (int i = 0; i < prim.positions.size(); ++i)
+                appendFloat32LE(binBuf, prim.positions[i]);
             am.byteLength = (quint32)binBuf.size() - am.byteOffset;
             posAcc.append(am);
         }
@@ -326,7 +328,8 @@ QByteArray DzGLTFExporter::buildGLB(const QVector<GltfPrimData>& prims,
             am.byteOffset = (quint32)binBuf.size();
             am.count      = vertCount;
             am.hasMinMax  = false;
-            for (float v : prim.normals) appendFloat32LE(binBuf, v);
+            for (int i = 0; i < prim.normals.size(); ++i)
+                appendFloat32LE(binBuf, prim.normals[i]);
             am.byteLength = (quint32)binBuf.size() - am.byteOffset;
             normAcc.append(am);
         }
@@ -337,7 +340,8 @@ QByteArray DzGLTFExporter::buildGLB(const QVector<GltfPrimData>& prims,
             am.byteOffset = (quint32)binBuf.size();
             am.count      = prim.texcoords.size() / 2;
             am.hasMinMax  = false;
-            for (float v : prim.texcoords) appendFloat32LE(binBuf, v);
+            for (int i = 0; i < prim.texcoords.size(); ++i)
+                appendFloat32LE(binBuf, prim.texcoords[i]);
             am.byteLength = (quint32)binBuf.size() - am.byteOffset;
             uvAcc.append(am);
         }
@@ -351,24 +355,26 @@ QByteArray DzGLTFExporter::buildGLB(const QVector<GltfPrimData>& prims,
     QVector<int>     baseColorTexIdx(prims.size(), -1);
     QVector<int>     normalTexIdx(prims.size(), -1);
 
-    auto getOrAddImage = [&](const QString& path) -> int {
-        if (path.isEmpty()) return -1;
-        for (int i = 0; i < imagePaths.size(); ++i)
-            if (imagePaths[i] == path) return i;
-        imagePaths.append(path);
-        return imagePaths.size() - 1;
-    };
-
     for (int p = 0; p < prims.size(); ++p) {
-        baseColorTexIdx[p] = getOrAddImage(prims[p].baseColorTexturePath);
-        normalTexIdx[p]    = getOrAddImage(prims[p].normalTexturePath);
+        // base colour texture
+        if (!prims[p].baseColorTexturePath.isEmpty()) {
+            int found = -1;
+            for (int i = 0; i < imagePaths.size(); ++i)
+                if (imagePaths[i] == prims[p].baseColorTexturePath) { found = i; break; }
+            if (found < 0) { found = imagePaths.size(); imagePaths.append(prims[p].baseColorTexturePath); }
+            baseColorTexIdx[p] = found;
+        }
+        // normal texture
+        if (!prims[p].normalTexturePath.isEmpty()) {
+            int found = -1;
+            for (int i = 0; i < imagePaths.size(); ++i)
+                if (imagePaths[i] == prims[p].normalTexturePath) { found = i; break; }
+            if (found < 0) { found = imagePaths.size(); imagePaths.append(prims[p].normalTexturePath); }
+            normalTexIdx[p] = found;
+        }
     }
 
     // ---- 3. Build JSON ---------------------------------------------------
-    // accessorBase: each prim owns 3 accessors (pos, norm, uv)
-    // bufferViewBase: same ordering
-    int accBase = 0;  // accessor index of first accessor for prim p = p*3
-
     QString json;
     json += "{\n";
 
@@ -394,7 +400,7 @@ QByteArray DzGLTFExporter::buildGLB(const QVector<GltfPrimData>& prims,
     }
     json += "  ] } ],\n";
 
-    // accessors + bufferViews (one bufferView per accessor for simplicity)
+    // accessors + bufferViews (one bufferView per accessor)
     json += "  \"accessors\": [\n";
     for (int p = 0; p < prims.size(); ++p) {
         // POSITION
@@ -437,18 +443,28 @@ QByteArray DzGLTFExporter::buildGLB(const QVector<GltfPrimData>& prims,
     // bufferViews
     json += "  \"bufferViews\": [\n";
     for (int p = 0; p < prims.size(); ++p) {
-        auto emitBV = [&](const AccessorMeta& am, int target, bool last) {
-            json += "    {\n";
-            json += "      \"buffer\": 0,\n";
-            json += QString("      \"byteOffset\": %1,\n").arg(am.byteOffset);
-            json += QString("      \"byteLength\": %1,\n").arg(am.byteLength);
-            json += QString("      \"target\": %1\n").arg(target);
-            json += last ? "    }\n" : "    },\n";
-        };
         bool lastPrim = (p == prims.size()-1);
-        emitBV(posAcc[p],  34962, false);         // ARRAY_BUFFER
-        emitBV(normAcc[p], 34962, false);
-        emitBV(uvAcc[p],   34962, lastPrim);
+        // position BV
+        json += "    {\n";
+        json += "      \"buffer\": 0,\n";
+        json += QString("      \"byteOffset\": %1,\n").arg(posAcc[p].byteOffset);
+        json += QString("      \"byteLength\": %1,\n").arg(posAcc[p].byteLength);
+        json += "      \"target\": 34962\n";
+        json += "    },\n";
+        // normal BV
+        json += "    {\n";
+        json += "      \"buffer\": 0,\n";
+        json += QString("      \"byteOffset\": %1,\n").arg(normAcc[p].byteOffset);
+        json += QString("      \"byteLength\": %1,\n").arg(normAcc[p].byteLength);
+        json += "      \"target\": 34962\n";
+        json += "    },\n";
+        // uv BV
+        json += "    {\n";
+        json += "      \"buffer\": 0,\n";
+        json += QString("      \"byteOffset\": %1,\n").arg(uvAcc[p].byteOffset);
+        json += QString("      \"byteLength\": %1,\n").arg(uvAcc[p].byteLength);
+        json += "      \"target\": 34962\n";
+        json += lastPrim ? "    }\n" : "    },\n";
     }
     json += "  ],\n";
 
@@ -499,7 +515,7 @@ QByteArray DzGLTFExporter::buildGLB(const QVector<GltfPrimData>& prims,
     json += "}\n";
 
     // ---- 4. Assemble GLB -------------------------------------------------
-    QByteArray jsonBytes = json.toUtf8();
+    QByteArray jsonBytes  = json.toUtf8();
     QByteArray jsonPadded = padTo4(jsonBytes, ' ');
 
     quint32 totalLen = 12
@@ -540,7 +556,7 @@ void DzGLTFExporter::computeFlatNormal(const float* a, const float* b,
     outN[2] = u[0]*v[1] - u[1]*v[0];
     float len = std::sqrt(outN[0]*outN[0] + outN[1]*outN[1] + outN[2]*outN[2]);
     if (len > 1e-8f) { outN[0]/=len; outN[1]/=len; outN[2]/=len; }
-    else              { outN[0]=0; outN[1]=1; outN[2]=0; }
+    else              { outN[0]=0.0f; outN[1]=1.0f; outN[2]=0.0f; }
 }
 
 // ---------------------------------------------------------------------------
