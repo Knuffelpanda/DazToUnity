@@ -75,7 +75,7 @@ namespace Daz3D
 				{
 					case DazRenderPipeline.HDRP: return "Daz3D/uDTU HDRP.";
 					case DazRenderPipeline.URP: return "Daz3D/uDTU URP.";
-					default: return "";
+					default: return "Daz3D/uDTU BuiltIn.";
 				}
 			}
 		}
@@ -836,6 +836,14 @@ namespace Daz3D
 			if (RenderPipelineHelper.IsURP)
 				{
 					// DB 2021-09-28: URP needs hardcoded transparency shader mode, so this block is needed to override everything above
+					if(isTransparent && Daz3DDTUImporter.UseLegacyShaders==false)
+					{
+						shaderName = DTU_Constants.newShaderNameBase + "Transparent";
+					}
+				}
+				else if (RenderPipelineHelper.IsBuiltIn)
+				{
+					// Built-in RP transparent materials need an explicit transparent shader override
 					if(isTransparent && Daz3DDTUImporter.UseLegacyShaders==false)
 					{
 						shaderName = DTU_Constants.newShaderNameBase + "Transparent";

@@ -23,7 +23,7 @@ namespace Daz3D
         public static bool AutomateMecanimAvatarMappings = true;
         public static bool ReplaceMaterials = true;
         public static bool EnableDForceSupport = false;
-        public static bool UseLegacyShaders => RenderPipelineHelper.IsBuiltIn;
+        public static bool UseLegacyShaders => false;
 
         public static void ResetOptions()
         {
