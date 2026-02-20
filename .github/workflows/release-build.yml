@@ -15,13 +15,13 @@ jobs:
           submodules: recursive
 
       - name: Verify Daz Studio SDK
-        shell: bash
+        shell: cmd
         run: |
-          if [ ! -d "$DAZ_SDK_DIR" ]; then
-            echo "::error::Daz Studio SDK not found at '$DAZ_SDK_DIR'. Set DAZ_SDK_DIR as an environment variable on the runner."
-            exit 1
-          fi
-          echo "Daz Studio SDK found at $DAZ_SDK_DIR"
+          if not exist "%DAZ_SDK_DIR%\" (
+            echo ::error::Daz Studio SDK not found at '%DAZ_SDK_DIR%'. Set DAZ_SDK_DIR as a system environment variable on the runner.
+            exit /b 1
+          )
+          echo Daz Studio SDK found at %DAZ_SDK_DIR%
 
       - name: Cache FBX SDK
         id: cache-fbx-sdk
@@ -32,13 +32,10 @@ jobs:
 
       - name: Install FBX SDK
         if: steps.cache-fbx-sdk.outputs.cache-hit != 'true'
-        shell: bash
+        shell: cmd
         run: |
-          curl -L "https://damassets.autodesk.net/content/dam/autodesk/www/files/fbx202039_fbxsdk_vs2022_win.exe" -o /tmp/fbxsdk.exe
-          # NSIS silent install — /D= must be a Windows absolute path and must be last
-          cmd //c "/tmp/fbxsdk.exe //S //D=C:\\FbxSdk"
-          # Wait for the installer to finish
-          sleep 60
+          curl -L "https://damassets.autodesk.net/content/dam/autodesk/www/files/fbx202039_fbxsdk_vs2022_win.exe" -o "%TEMP%\fbxsdk.exe"
+          start /wait "" "%TEMP%\fbxsdk.exe" /S /D=C:\FbxSdk
 
       - name: Cache OpenSubdiv
         id: cache-opensubdiv
@@ -49,39 +46,37 @@ jobs:
 
       - name: Build OpenSubdiv
         if: steps.cache-opensubdiv.outputs.cache-hit != 'true'
-        shell: bash
+        shell: cmd
         run: |
-          git clone --depth 1 --branch v3_6_0 https://github.com/PixarAnimationStudios/OpenSubdiv.git /c/OpenSubdiv/src
-          cmake -B /c/OpenSubdiv/build -S /c/OpenSubdiv/src \
-            -DNO_PTEX=ON -DNO_DOC=ON -DNO_OMP=ON -DNO_TBB=ON -DNO_CUDA=ON \
-            -DNO_OPENCL=ON -DNO_CLEW=ON -DNO_GLEW=ON -DNO_GLFW=ON \
-            -DNO_GLFW_X11=ON -DNO_EXAMPLES=ON -DNO_TUTORIALS=ON \
-            -DNO_REGRESSION=ON -DNO_TESTS=ON \
-            -DCMAKE_INSTALL_PREFIX=/c/OpenSubdiv/install
-          cmake --build /c/OpenSubdiv/build --config Release --target install
+          git clone --depth 1 --branch v3_6_0 https://github.com/PixarAnimationStudios/OpenSubdiv.git C:\OpenSubdiv\src
+          cmake -B C:\OpenSubdiv\build -S C:\OpenSubdiv\src ^
+            -DNO_PTEX=ON -DNO_DOC=ON -DNO_OMP=ON -DNO_TBB=ON -DNO_CUDA=ON ^
+            -DNO_OPENCL=ON -DNO_CLEW=ON -DNO_GLEW=ON -DNO_GLFW=ON ^
+            -DNO_GLFW_X11=ON -DNO_EXAMPLES=ON -DNO_TUTORIALS=ON ^
+            -DNO_REGRESSION=ON -DNO_TESTS=ON ^
+            -DCMAKE_INSTALL_PREFIX=C:\OpenSubdiv\install
+          cmake --build C:\OpenSubdiv\build --config Release --target install
 
       - name: Configure DazToUnity
-        shell: bash
+        shell: cmd
         run: |
-          cmake -B build -S . \
-            -DDAZ_SDK_DIR="$DAZ_SDK_DIR" \
-            -DFBX_SDK_DIR="C:/FbxSdk" \
-            -DFBX_SDK_LIB="C:/FbxSdk/lib/x64/release/libfbxsdk-md.lib" \
-            -DFBX_SDK_XMLLIB="C:/FbxSdk/lib/x64/release/libxml2-md.lib" \
-            -DOPENSUBDIV_DIR="C:/OpenSubdiv/install/include" \
-            -DOPENSUBDIV_LIB="C:/OpenSubdiv/install/lib/osdCPU.lib" \
+          cmake -B build -S . ^
+            "-DDAZ_SDK_DIR=%DAZ_SDK_DIR%" ^
+            -DFBX_SDK_DIR=C:\FbxSdk ^
+            "-DFBX_SDK_LIB=C:\FbxSdk\lib\x64\release\libfbxsdk-md.lib" ^
+            "-DFBX_SDK_XMLLIB=C:\FbxSdk\lib\x64\release\libxml2-md.lib" ^
+            "-DOPENSUBDIV_DIR=C:\OpenSubdiv\install\include" ^
+            "-DOPENSUBDIV_LIB=C:\OpenSubdiv\install\lib\osdCPU.lib" ^
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
       - name: Build DazToUnity
-        shell: bash
+        shell: cmd
         run: |
           cmake --build build --config Release
 
       - name: Upload DLL to Release
-        shell: bash
+        shell: cmd
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            build/bin/Release/dzunitybridge.dll \
-            --clobber
+          gh release upload "${{ github.event.release.tag_name }}" build\bin\Release\dzunitybridge.dll --clobber
