@@ -1,0 +1,78 @@
+name: Build and Upload Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache Daz Studio SDK
+        id: cache-daz-sdk
+        uses: actions/cache@v4
+        with:
+          path: C:\DazSDK
+          key: daz-sdk-4.5
+
+      - name: Download Daz Studio SDK
+        if: steps.cache-daz-sdk.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          # The Daz SDK must be provided as a repository secret (base64-encoded zip)
+          # or downloaded from a known URL. For now we check if it's cached.
+          if (-not (Test-Path "C:\DazSDK")) {
+            Write-Error "Daz Studio SDK not found. Please populate the cache manually or add a download step."
+            exit 1
+          }
+
+      - name: Install FBX SDK
+        shell: pwsh
+        run: |
+          $fbxUrl = "https://damassets.autodesk.net/content/dam/autodesk/www/files/fbx202039_fbxsdk_vs2022_win.exe"
+          $installer = "$env:TEMP\fbxsdk.exe"
+          Invoke-WebRequest -Uri $fbxUrl -OutFile $installer
+          Start-Process -FilePath $installer -ArgumentList "/S","/D=C:\FbxSdk" -Wait
+
+      - name: Build OpenSubdiv
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://github.com/PixarAnimationStudios/OpenSubdiv.git C:\OpenSubdiv
+          cmake -B C:\OpenSubdiv\build -S C:\OpenSubdiv `
+            -DNO_PTEX=ON -DNO_DOC=ON -DNO_OMP=ON -DNO_TBB=ON -DNO_CUDA=ON `
+            -DNO_OPENCL=ON -DNO_CLEW=ON -DNO_GLEW=ON -DNO_GLFW=ON `
+            -DNO_GLFW_X11=ON -DNO_EXAMPLES=ON -DNO_TUTORIALS=ON `
+            -DNO_REGRESSION=ON -DNO_TESTS=ON `
+            -DCMAKE_INSTALL_PREFIX=C:\OpenSubdiv\install
+          cmake --build C:\OpenSubdiv\build --config Release --target install
+
+      - name: Configure DazToUnity
+        shell: pwsh
+        run: |
+          cmake -B build -S . `
+            -DDAZ_SDK_DIR="C:\DazSDK" `
+            -DFBX_SDK_DIR="C:\FbxSdk" `
+            -DFBX_SDK_LIB="C:\FbxSdk\lib\x64\release\libfbxsdk-md.lib" `
+            -DFBX_SDK_XMLLIB="C:\FbxSdk\lib\x64\release\libxml2-md.lib" `
+            -DOPENSUBDIV_DIR="C:\OpenSubdiv\install\include" `
+            -DOPENSUBDIV_LIB="C:\OpenSubdiv\install\lib\osdCPU.lib" `
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+
+      - name: Build DazToUnity
+        shell: pwsh
+        run: |
+          cmake --build build --config Release
+
+      - name: Upload DLL to Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            build/bin/Release/dzunitybridge.dll \
+            --clobber

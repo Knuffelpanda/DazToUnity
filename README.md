@@ -18,11 +18,18 @@ The DazToUnity Bridge consists of two parts: a Daz Studio plugin which exports a
 
 # 2. How to Install
 ### Daz Studio Plugin ###
-- You can install the Daz Studio plugin automatically through the Daz Install Manager or Daz Central.  This will add a new menu option under File -> Send To -> Daz To Unity.
-- For the latest release and bugfixes:
-1. Go to the [Release page](https://github.com/daz3d/DazToUnity/releases)
-2. Download the zipped **dzunitybridge.dll** (libdzunitybridge.dylib** for macOS)
-3. Unzip and copy it into the Daz Studio plugins folder (example: `\Daz 3D\Applications\64-bit\DAZ 3D\DAZStudio4\plugins`)
+
+1. Go to the [Releases page](https://github.com/Knuffelpanda/DazToUnity/releases)
+2. Download **dzunitybridge.dll**
+3. Copy the DLL into your Daz Studio plugins folder:
+   ```
+   <Daz Studio Install>\DAZStudio4\plugins\
+   ```
+   Common locations:
+   - `C:\Daz 3D\Applications\64-bit\DAZ 3D\DAZStudio4\plugins\`
+   - `D:\DAZ 3D\64bit\DAZ 3D\DAZStudio4\plugins\`
+4. Restart Daz Studio
+5. Verify: **File -> Send To -> Daz To Unity** should now appear in the menu
 
 
 ### Unity Plugin ###
