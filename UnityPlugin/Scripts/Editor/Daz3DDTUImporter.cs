@@ -207,7 +207,6 @@ namespace Daz3D
 
         private static IEnumerator ImportRoutine(string dtuPath, string fbxPath)
         {
-            //DEBUG
             //Debug.LogError("dtuPath = [" + dtuPath + "] " + dtuPath.Length);
 
             if (Daz3DBridge.BatchConversionMode == 0)
@@ -696,144 +695,17 @@ namespace Daz3D
                                     if (EnableDForceSupport)
                                         ImportDforceToPrefab(key, renderer, workingInstance, keyMat);
 
-                                    //DForceMaterial dforceMat = _dforceMap.Map[key];
-                                    //GameObject parent = renderer.gameObject;
-                                    //SkinnedMeshRenderer skinned = parent.GetComponent<SkinnedMeshRenderer>();
-                                    //Cloth cloth;
-
-                                    //// add Unity Cloth Physics component to gameobject parent of the renderer
-                                    //if (parent.GetComponent<Cloth>() == null)
-                                    //{
-                                    //    cloth = parent.AddComponent<Cloth>();
-                                    //    // assign values from dtuMat
-                                    //    cloth.stretchingStiffness = dforceMat.dtuMaterial.Get("Stretch Stiffness").Float;
-                                    //    cloth.bendingStiffness = dforceMat.dtuMaterial.Get("Bend Stiffness").Float;
-                                    //    cloth.damping = dforceMat.dtuMaterial.Get("Damping").Float;
-                                    //    cloth.friction = dforceMat.dtuMaterial.Get("Friction").Float;
-
-                                    //    // fix SkinnedMeshRenderer boundaries bug
-                                    //    skinned.updateWhenOffscreen = true;
-
-                                    //    // Add G8F cloth collision rig
-                                    //    var searchResult = workingInstance.transform.Find("Cloth Collision Rig");
-                                    //    GameObject collision_instance = (searchResult != null) ? searchResult.gameObject : null;
-                                    //    if (collision_instance == null)
-                                    //    {
-                                    //        GameObject collision_prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Daz3D/Resources/G8F Collision Rig.prefab");
-                                    //        collision_instance = Instantiate<GameObject>(collision_prefab);
-                                    //        collision_instance.name = "Cloth Collision Rig";
-                                    //        collision_instance.transform.parent = workingInstance.transform;
-                                    //        // merge cloth collision rig to figure root bone
-                                    //        collision_instance.GetComponent<ClothCollisionAssigner>().mergeRig(skinned.rootBone);
-                                    //    }
-                                    //    ClothCollisionAssigner.ClothConfig clothConfig = new ClothCollisionAssigner.ClothConfig();
-                                    //    clothConfig.m_ClothToManage = cloth;
-                                    //    clothConfig.m_UpperBody = true;
-                                    //    clothConfig.m_LowerBody = true;
-                                    //    collision_instance.GetComponent<ClothCollisionAssigner>().addClothConfig(clothConfig);
-
-                                    //}
-                                    //else
-                                    //{
-                                    //    cloth = parent.GetComponent<Cloth>();
-                                    //}
-
-                                    //// add clothtools to gameobject parent of renderer
-                                    //ClothTools clothTools;
-                                    //if (parent.GetComponent<ClothTools>() == null)
-                                    //{
-                                    //    clothTools = parent.AddComponent<ClothTools>();
-                                    //    clothTools.GenerateLookupTables();
-                                    //}
-                                    //else
-                                    //{
-                                    //    clothTools = parent.GetComponent<ClothTools>();
-                                    //}
-
-                                    //int matIndex = Array.IndexOf(skinned.sharedMaterials, keyMat);
-                                    //// get vertex list for this material's submesh
-                                    //if (matIndex >= 0)
-                                    //{
-                                    //    float simulation_strength;
-                                    //    //// map the materical's submesh's vertices to the correct "Dynamics Strength"
-                                    //    simulation_strength = dforceMat.dtuMaterial.Get("Dynamics Strength").Float;
-                                    //    Debug.Log("DEBUG INFO: simulation strength: " + simulation_strength);
-                                    //    //// DEBUG line to map simulation strength to material index
-                                    //    //simulation_strength = matIndex;
-
-                                    //    //// Tiered scaling function
-                                    //    float adjusted_simulation_strength;
-                                    //    //float strength_max = 1.0f;
-                                    //    //float strength_min = 0.0f;
-                                    //    float strength_scale_threshold = 0.5f;
-                                    //    if (simulation_strength <= strength_scale_threshold)
-                                    //    {
-                                    //        //// stronger compression of values below threshold
-                                    //        float scale = 0.075f;
-                                    //        float offset = 0.2f;
-                                    //        adjusted_simulation_strength = (simulation_strength - offset) * scale;
-                                    //    }
-                                    //    else
-                                    //    {
-                                    //        float offset = (strength_scale_threshold - 0.2f) * 0.075f; // offset = (threshold - previous tier's offset) * previous teir's scale
-                                    //        float scale = 0.2f;
-                                    //        adjusted_simulation_strength = (simulation_strength - offset) / (1 - offset); // apply offset, then normalize to 1.0
-                                    //        adjusted_simulation_strength *= scale;
-                                    //    }
-                                    //    //// clamp to 0.0f to 0.2f
-                                    //    float coeff_min = 0.0f;
-                                    //    float coeff_max = 0.2f;
-                                    //    adjusted_simulation_strength = (adjusted_simulation_strength > coeff_min) ? adjusted_simulation_strength : coeff_min;
-                                    //    adjusted_simulation_strength = (adjusted_simulation_strength < coeff_max) ? adjusted_simulation_strength : coeff_max;
-                                    //    //// Debug line for no scaling
-                                    //    //adjusted_simulation_strength = simulation_strength;
-
-                                    //    clothTools.SetSubMeshWeights(matIndex, adjusted_simulation_strength);
-
-                                    //}
-
                                 }
 
                             }
                             else if (s_StandardMaterialCollection.ContainsKey(key))
                             {
                                 nuMat = new Material(s_StandardMaterialCollection[key]);
-                                //FixupStandardBasedMaterial(ref nuMat, fbxPrefab, keyMat.name, data);
                             }
                             else
                             {
                                 Debug.LogError("DazBridge: No imported materials were found for material remapping");
                                 continue;
-
-                                /****
-                                 ** Everything below is old and broken.
-                                 ** Fbx exported from DazBridges no longer embed textures.
-                                 ****
-                                var shader = Shader.Find("HDRP/Lit");
-
-                                if (shader == null)
-                                {
-                                    Debug.LogWarning("couldn't find HDRP/Lit shader");
-                                    continue;
-                                }
-
-                                nuMat = new Material(shader);
-                                nuMat.CopyPropertiesFromMaterial(keyMat);
-
-                                // just copy the textures, colors and scalars that are appropriate given the base material type
-                                //DazMaterialPropertiesInfo info = new DazMaterialPropertiesInfo();
-                                //CustomizeMaterial(ref nuMat, info);
-
-                                var matPath = Path.GetDirectoryName(modelPath);
-                                matPath = Path.Combine(matPath, fbxPrefab.name + "Daz3D_Materials");
-                                matPath = AssetDatabase.GenerateUniqueAssetPath(matPath);
-
-                                if (!Directory.Exists(matPath))
-                                    Directory.CreateDirectory(matPath);
-
-                                //Debug.Log("obj path " + path);
-                                AssetDatabase.CreateAsset(nuMat, matPath + "/Daz3D_" + keyMat.name + ".mat");
-                                */
                             }
 
                             dict.Add(keyMat, nuMat);
@@ -1068,9 +940,6 @@ namespace Daz3D
                 float simulation_strength;
                 //// map the materical's submesh's vertices to the correct "Dynamics Strength"
                 simulation_strength = dforceMat.dtuMaterial.Get("Dynamics Strength").Float;
-                Debug.Log("DEBUG INFO: simulation strength: " + simulation_strength);
-                //// DEBUG line to map simulation strength to material index
-                //simulation_strength = matIndex;
 
                 //// Tiered scaling function
                 float adjusted_simulation_strength;
@@ -1262,164 +1131,6 @@ namespace Daz3D
             map["Right Little Intermediate"] = "rPinky2";
             map["Right Little Distal"] = "rPinky3";
         }
-
-        private void FixupStandardBasedMaterial(ref Material nuMat, GameObject fbxPrefab, string key/*, DTUData data*/)
-        {
-            ////todo need fixup missing textures from the json
-            //Debug.LogWarning("dtuData has " + data.Materials.Count + " materials ");
-
-            //var modelPath = AssetDatabase.GetAssetPath(fbxPrefab);
-            //var nuTexturePath = Path.GetDirectoryName(modelPath);
-            //nuTexturePath = BuildUnityPath(nuTexturePath, fbxPrefab.name + "Textures___");
-            //nuTexturePath = AssetDatabase.GenerateUniqueAssetPath(nuTexturePath);
-
-            ////walk data until find a material named with key
-            //foreach (var material in data.Materials)
-            //{
-            //    if (material.MaterialName == key && false) //TODO hack to bypass unfinished fn
-            //    {
-            //        //walk properties and work on any with a texture path
-            //        foreach (var property in material.Properties)
-            //        {
-            //            if (!string.IsNullOrEmpty(property.Texture))
-            //            {
-            //                //and the daz folder has that texture 
-            //                if (File.Exists(property.Texture))
-            //                {
-            //                    //copy it into the local textures folder
-            //                    if (!Directory.Exists(nuTexturePath))
-            //                        Directory.CreateDirectory(nuTexturePath);
-
-            //                    var nuTextureName = BuildUnityPath(nuTexturePath, Path.GetFileName(property.Texture));
-
-            //                    //TODO-----------------------------
-            //                    //todo some diffuse maps are jpg with no alpha channel, 
-            //                    //instead use the FBX's embedded/collected texture which already has alpha channel, 
-            //                    //test whether that material already has a valid diffuse color texture
-            //                    //if so, reimport that with the importer options below
-
-            //                    //copy the texture file from the daz folder to nuTexturePath
-            //                    File.Copy(property.Texture, nuTextureName);
-
-            //                    TextureImporter importer = (TextureImporter)AssetImporter.GetAtPath(nuTextureName);
-            //                    if (importer != null)
-            //                    {
-            //                        //todo twiddle other switches here, before the reimport happens only once
-            //                        importer.alphaIsTransparency = KeyToTransparency(key);
-            //                        importer.alphaSource = KeyToAlphaSource(key);
-            //                        importer.convertToNormalmap = KeyToNormalMap(key);
-            //                        importer.heightmapScale = KeyToHeightmapScale(key);
-            //                        importer.normalmapFilter = KeyToNormalMapFilter(key);
-            //                        importer.wrapMode = KeyToWrapMode(key);
-
-            //                        importer.SaveAndReimport();
-            //                    }
-            //                    else
-            //                    {
-            //                        Debug.LogWarning("texture " + nuTextureName + " is not a project asset.");
-            //                    }
-            //                }
-            //            }
-            //        }
-            //    }
-            //}
-        }
-
-        private TextureImporterAlphaSource KeyToAlphaSource(string key)
-        {
-            throw new NotImplementedException();
-        }
-
-        private TextureWrapMode KeyToWrapMode(string key)
-        {
-            throw new NotImplementedException();
-        }
-
-        private TextureImporterNormalFilter KeyToNormalMapFilter(string key)
-        {
-            throw new NotImplementedException();
-        }
-
-        private float KeyToHeightmapScale(string key)
-        {
-            throw new NotImplementedException();
-        }
-
-        private bool KeyToNormalMap(string key)
-        {
-            throw new NotImplementedException();
-        }
-
-        private bool KeyToTransparency(string key)
-        {
-            throw new NotImplementedException();
-        }
-
-        //private void CustomizeMaterial(ref Material material, DazMaterialPropertiesInfo info)
-        //{
-        //    material.SetColor("_BaseColor", info.BaseColor);
-        //    material.SetFloat("_SurfaceType", info.Transparent ? 1 : 0); //0 == opaque, 1 == transparent
-
-        //    Texture mainTexture = material.mainTexture;
-        //    CustomizeTexture(ref mainTexture, info.Transparent);
-
-        //    var normalMap = material.GetTexture("_NormalMap");
-        //    if (!IsValidNormalMap(normalMap))
-        //        material.SetTexture("_NormalMap", null);//nuke the invalid normal map, if its a mistake
-
-
-        //    material.SetFloat("_Metallic", info.Metallic);
-        //    material.SetFloat("_Smoothness", info.Smoothness);
-        //    material.SetInt("_MaterialID", (int)info.MaterialType);
-        //    material.SetFloat("_DoubleSidedEnable", info.DoubleSided ? 0 : 1);
-        //}
-
-
-        void CustomizeTexture(ref Texture texture, bool alphaIsTransparent)
-        {
-            if (texture != null)
-            {
-                var texPath = AssetDatabase.GetAssetPath(texture);
-                TextureImporter importer = (TextureImporter)AssetImporter.GetAtPath(texPath);
-                if (importer != null)
-                {
-                    if (alphaIsTransparent && importer.DoesSourceTextureHaveAlpha())
-                    {
-                        importer.alphaIsTransparency = true;
-                    }
-
-                    //todo twiddle other switches here, before the reimport happens only once
-                    importer.SaveAndReimport();
-                }
-                else
-                    Debug.LogWarning("texture " + texture.name + " is not a project asset.");
-
-            }
-            else
-                Debug.LogWarning("null texture");
-        }
-
-
-        bool IsValidNormalMap(Texture normalMap)
-        {
-            if (normalMap == null)
-                return false;
-
-            var nmPath = AssetDatabase.GetAssetPath(normalMap);
-            TextureImporter importer = (TextureImporter)AssetImporter.GetAtPath(nmPath);
-            if (importer != null)
-            {
-                var settings = new TextureImporterSettings();
-                importer.ReadTextureSettings(settings);
-                return settings.textureType == TextureImporterType.NormalMap;
-            }
-            else
-                Debug.LogWarning("texture " + normalMap.name + " is not a project asset.");
-
-            return true;
-        }
-
-
 
         // Validated menu item.
         // Add a menu item named "Log Selected Transform Name" to MyMenu in the menu bar.
