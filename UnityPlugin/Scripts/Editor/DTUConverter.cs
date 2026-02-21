@@ -723,6 +723,9 @@ namespace Daz3D
 			var verticalOffset = dtuMaterial.Get("Vertical Offset");
 			//we only support uv0 atm, but we should support alternates, requires us keywording/updating the shaders or procedurally updating the meshes to copy this value to uv0
 			var uvSet = dtuMaterial.Get("UV Set");
+			var displacementStrength = dtuMaterial.Get("Displacement Strength");
+			var displacementMin      = dtuMaterial.Get("Minimum Displacement", new DTUValue(0.0f));
+			var displacementMax      = dtuMaterial.Get("Maximum Displacement", new DTUValue(0.05f));
 
 			// DB (2021-09-22): Top Coat implementation
 			var topCoatWeight = dtuMaterial.Get("Top Coat Weight");
@@ -899,7 +902,7 @@ namespace Daz3D
 				// 2022-Feb-04 (DB): hardcode from isTransparent=true back to isTransparent=false to fix zsorting problems with hair vs cap, etc
 				isTransparent = false;
 
-			mat.SetColor("_Diffuse",diffuseColor.Color);
+			mat.SetColor("_Diffuse", diffuseColor.Color * Mathf.Clamp01(diffuseStrength.Exists ? diffuseStrength.Float : 1f));
 				mat.SetTexture("_DiffuseMap",ImportTextureFromPath(diffuseColor.Texture, textureDir, record));
 				mat.SetTexture("_NormalMap",ImportTextureFromPath(normalMap.Texture, textureDir, record, true));
 				if (normalMap.Texture == "")
@@ -933,15 +936,7 @@ namespace Daz3D
 				mat.SetColor("_SpecularColor",specularColor);
 
 				//A few magic values that work for most hairs
-				mat.SetFloat("_AlphaStrength",1.2f);
-				mat.SetFloat("_AlphaOffset",0.25f);
-				if (RenderPipelineHelper.IsHDRP)
-					mat.SetFloat("_AlphaClip",0.33f);
-				else if (RenderPipelineHelper.IsURP)
-					mat.SetFloat("_AlphaClipThreshold", 0.8f);
-				else // Built-in
-					mat.SetFloat("_AlphaClipThreshold", 0.35f);
-				mat.SetFloat("_AlphaPower",1.0f);
+				SetHairAlphaClipDefaults(mat, hdrpClip: 0.33f, urpClip: 0.8f, builtInClip: 0.35f);
 			}
 			else if(isWet)
 			{
@@ -1296,6 +1291,19 @@ namespace Daz3D
 				}
 			}
 
+			// Displacement map: pass data to any shader that exposes these properties.
+			// Full per-vertex displacement requires a tessellation-capable shader variant.
+			if (displacementStrength.TextureExists() || displacementStrength.Float != 0f)
+			{
+				if (mat.HasProperty("_DisplacementMap"))
+					mat.SetTexture("_DisplacementMap", ImportTextureFromPath(displacementStrength.Texture, textureDir, record, false, true));
+				if (mat.HasProperty("_DisplacementStrength"))
+					mat.SetFloat("_DisplacementStrength", displacementStrength.Float);
+				if (mat.HasProperty("_DisplacementMin"))
+					mat.SetFloat("_DisplacementMin", displacementMin.Float);
+				if (mat.HasProperty("_DisplacementMax"))
+					mat.SetFloat("_DisplacementMax", displacementMax.Float);
+			}
 
 			bool hasDualLobeSpecularWeight = dualLobeSpecularWeight.Float>0;
 			bool hasDualLobeSpecularReflectivity = dualLobeSpecularReflectivity.Float>0;
@@ -1544,7 +1552,44 @@ namespace Daz3D
 				mat.SetTexture("_AlphaMap",ImportTextureFromPath(cutoutOpacity.Texture, textureDir, record, false, true));
 			}
 
-			//TODO: DiffuseStrength, SpecularStrength, AmbientStrength, Neg/Pos Bump, Disp, Reflection, Refraction
+			// Negative/Positive Bump: use range to compute a height offset so bump troughs and peaks are correct.
+			if (negativeBump.Exists || postiiveBump.Exists)
+			{
+				float negB = negativeBump.Exists ? negativeBump.Float : 0f;
+				float posB = postiiveBump.Exists  ? postiiveBump.Float  : 1f;
+				float range = posB - negB;
+				if (range > 0f && mat.HasProperty("_HeightOffset"))
+					mat.SetFloat("_HeightOffset", -negB / range);
+			}
+
+			// Displacement map.
+			if (displacementStrength.TextureExists() || displacementStrength.Float != 0f)
+			{
+				if (mat.HasProperty("_DisplacementMap"))
+					mat.SetTexture("_DisplacementMap", ImportTextureFromPath(displacementStrength.Texture, textureDir, record, false, true));
+				if (mat.HasProperty("_DisplacementStrength"))
+					mat.SetFloat("_DisplacementStrength", displacementStrength.Float);
+				if (mat.HasProperty("_DisplacementMin"))
+					mat.SetFloat("_DisplacementMin", minimumDisplacement.Float);
+				if (mat.HasProperty("_DisplacementMax"))
+					mat.SetFloat("_DisplacementMax", maximumDisplacement.Float);
+			}
+
+			// Reflection color/strength (set if shader exposes the properties).
+			if (reflectionColor.Exists && mat.HasProperty("_ReflectionColor"))
+			{
+				Color rc = reflectionColor.Color * (reflectionStrength.Exists ? reflectionStrength.Float : 1f);
+				mat.SetColor("_ReflectionColor", rc);
+			}
+
+			// Refraction (non-wet path).
+			if (refractionStrength.Exists && refractionStrength.Float > 0f)
+			{
+				if (mat.HasProperty("_IndexOfRefraction"))
+					mat.SetFloat("_IndexOfRefraction", indexOfRefraction.Float);
+				if (mat.HasProperty("_RefractionColor"))
+					mat.SetColor("_RefractionColor", refractionColor.Color);
+			}
 
 			var matNameLower = dtuMaterial.MaterialName.ToLower();
 			var assetNameLower = dtuMaterial.AssetName.ToLower();
@@ -1872,15 +1917,7 @@ namespace Daz3D
 				mat.SetColor("_SpecularColor",specularColor.Color);
 
 				//A few magic values that work for most hairs
-				mat.SetFloat("_AlphaStrength",1.2f);
-				mat.SetFloat("_AlphaOffset",0.25f);
-				if (RenderPipelineHelper.IsHDRP)
-					mat.SetFloat("_AlphaClip",0.33f);
-				else if (RenderPipelineHelper.IsURP)
-					mat.SetFloat("_AlphaClipThreshold", 0.8f);
-				else // Built-in
-					mat.SetFloat("_AlphaClipThreshold", 0.35f);
-				mat.SetFloat("_AlphaPower",1.0f);
+				SetHairAlphaClipDefaults(mat, hdrpClip: 0.33f, urpClip: 0.8f, builtInClip: 0.35f);
 			}
 			else if(isWet)
 			{
@@ -2074,15 +2111,7 @@ namespace Daz3D
 			mat.SetColor("_SpecularColorSecondary",hairTipColor.Color);
 
 			//A few magic values that work for most hairs
-			mat.SetFloat("_AlphaStrength",1.2f);
-			mat.SetFloat("_AlphaOffset",0.25f);
-			if (RenderPipelineHelper.IsHDRP)
-				mat.SetFloat("_AlphaClip",0.75f);
-			else if (RenderPipelineHelper.IsURP)
-				mat.SetFloat("_AlphaClipThreshold", 0.8f);
-			else // Built-in
-				mat.SetFloat("_AlphaClipThreshold", 0.35f);
-			mat.SetFloat("_AlphaPower",1.0f);
+			SetHairAlphaClipDefaults(mat, hdrpClip: 0.75f, urpClip: 0.8f, builtInClip: 0.35f);
 
 
 			bool hasDualLobeSpecularWeight = false;
@@ -2211,15 +2240,7 @@ namespace Daz3D
 			mat.SetColor("_SpecularColorSecondary", hairTipColor.Color);
 
 			//A few magic values that work for most hairs
-			mat.SetFloat("_AlphaStrength", 1.2f);
-			mat.SetFloat("_AlphaOffset", 0.25f);
-			if (RenderPipelineHelper.IsHDRP)
-				mat.SetFloat("_AlphaClip", 0.75f);
-			else if (RenderPipelineHelper.IsURP)
-				mat.SetFloat("_AlphaClipThreshold", 0.8f);
-			else // Built-in
-				mat.SetFloat("_AlphaClipThreshold", 0.35f);
-			mat.SetFloat("_AlphaPower", 1.0f);
+			SetHairAlphaClipDefaults(mat, hdrpClip: 0.75f, urpClip: 0.8f, builtInClip: 0.35f);
 
 
 			bool hasDualLobeSpecularWeight = false;
@@ -2351,15 +2372,7 @@ namespace Daz3D
 			mat.SetColor("_SpecularColor",glossyColor.Color);
 
 			//A few magic values that work for most hairs
-			mat.SetFloat("_AlphaStrength",1.2f);
-			mat.SetFloat("_AlphaOffset",0.25f);
-			if (RenderPipelineHelper.IsHDRP)
-				mat.SetFloat("_AlphaClip",0.42f);
-			else if (RenderPipelineHelper.IsURP)
-				mat.SetFloat("_AlphaClipThreshold", 0.42f);
-			else // Built-in
-				mat.SetFloat("_AlphaClipThreshold", 0.15f);
-			mat.SetFloat("_AlphaPower",1.0f);
+			SetHairAlphaClipDefaults(mat, hdrpClip: 0.42f, urpClip: 0.42f, builtInClip: 0.15f);
 
 
 			bool hasDualLobeSpecularWeight = false;
@@ -2385,6 +2398,24 @@ namespace Daz3D
 		/// </summary>
 		/// <param name="dtuMaterial">The DTUMaterial object that exists in the array of mats inside the .dtu file</param>
 		/// <returns></returns>
+		/// <summary>
+		/// Applies the standard hair alpha-clip shader properties.
+		/// The clip threshold values are intentionally different per hair shader variant.
+		/// </summary>
+		private static void SetHairAlphaClipDefaults(
+			Material mat, float hdrpClip, float urpClip, float builtInClip)
+		{
+			mat.SetFloat("_AlphaStrength", 1.2f);
+			mat.SetFloat("_AlphaOffset",   0.25f);
+			if (RenderPipelineHelper.IsHDRP)
+				mat.SetFloat("_AlphaClip", hdrpClip);
+			else if (RenderPipelineHelper.IsURP)
+				mat.SetFloat("_AlphaClipThreshold", urpClip);
+			else
+				mat.SetFloat("_AlphaClipThreshold", builtInClip);
+			mat.SetFloat("_AlphaPower", 1.0f);
+		}
+
 		public Material ConvertToUnity(DTUMaterial dtuMaterial)
 		{
 			var materialDir = GetMaterialDir(dtuMaterial);
