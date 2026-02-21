@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
@@ -99,6 +100,7 @@ namespace Daz3D
 
             // --- Phase 2: add Rigidbody + CapsuleCollider + CharacterJoint ---
             var rigidbodies = new Dictionary<string, Rigidbody>();
+            var errors      = new List<string>();
 
             foreach (BoneConfig cfg in k_Bones)
             {
@@ -106,52 +108,72 @@ namespace Daz3D
 
                 Transform bone = found[cfg.Label];
 
-                // Remove existing components so we can start fresh
-                RemoveExisting<Rigidbody>(bone);
-                RemoveExisting<CapsuleCollider>(bone);
-                RemoveExisting<CharacterJoint>(bone);
-
-                // Collider: size from distance to first child bone
-                Transform childBone = found.ContainsKey(GetChildLabel(cfg.Label)) ? found[GetChildLabel(cfg.Label)] : FirstChildOrNull(bone);
-                AddCapsuleCollider(bone, childBone, cfg.RadiusFactor);
-
-                // Rigidbody
-                Rigidbody rb = Undo.AddComponent<Rigidbody>(bone.gameObject);
-                rb.mass           = cfg.Mass;
-                rb.drag           = 0.05f;
-                rb.angularDrag    = 0.05f;
-                rb.interpolation  = RigidbodyInterpolation.Interpolate;
-                rb.isKinematic    = true;   // starts animated
-                rigidbodies[cfg.Label] = rb;
-
-                // CharacterJoint (skip root / Hips)
-                if (cfg.ParentLabel != null && rigidbodies.ContainsKey(cfg.ParentLabel))
+                try
                 {
-                    CharacterJoint joint = Undo.AddComponent<CharacterJoint>(bone.gameObject);
-                    joint.connectedBody = rigidbodies[cfg.ParentLabel];
-                    joint.enablePreprocessing = false;
+                    // Remove existing components so we can start fresh
+                    RemoveExisting<Rigidbody>(bone);
+                    RemoveExisting<CapsuleCollider>(bone);
+                    RemoveExisting<CharacterJoint>(bone);
 
-                    // Twist limits
-                    joint.lowTwistLimit  = new SoftJointLimit { limit =  cfg.TwistLow };
-                    joint.highTwistLimit = new SoftJointLimit { limit =  cfg.TwistHigh };
+                    // Collider: size from distance to first child bone
+                    Transform childBone = found.ContainsKey(GetChildLabel(cfg.Label))
+                        ? found[GetChildLabel(cfg.Label)]
+                        : FirstChildOrNull(bone);
+                    AddCapsuleCollider(bone, childBone, cfg.RadiusFactor);
 
-                    // Swing limits
-                    joint.swing1Limit = new SoftJointLimit { limit = cfg.Swing1 };
-                    joint.swing2Limit = new SoftJointLimit { limit = cfg.Swing2 };
+                    // Rigidbody
+                    Rigidbody rb = Undo.AddComponent<Rigidbody>(bone.gameObject);
+                    rb.mass          = cfg.Mass;
+                    rb.drag          = 0.05f;
+                    rb.angularDrag   = 0.05f;
+                    rb.interpolation = RigidbodyInterpolation.Interpolate;
+                    rb.isKinematic   = true;   // starts animated
+                    rigidbodies[cfg.Label] = rb;
+
+                    // CharacterJoint (skip root / Hips)
+                    if (cfg.ParentLabel != null && rigidbodies.ContainsKey(cfg.ParentLabel))
+                    {
+                        CharacterJoint joint = Undo.AddComponent<CharacterJoint>(bone.gameObject);
+                        joint.connectedBody       = rigidbodies[cfg.ParentLabel];
+                        joint.enablePreprocessing = false;
+
+                        joint.lowTwistLimit  = new SoftJointLimit { limit = cfg.TwistLow  };
+                        joint.highTwistLimit = new SoftJointLimit { limit = cfg.TwistHigh };
+                        joint.swing1Limit    = new SoftJointLimit { limit = cfg.Swing1    };
+                        joint.swing2Limit    = new SoftJointLimit { limit = cfg.Swing2    };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    string error = $"{cfg.Label}: {ex.Message}";
+                    errors.Add(error);
+                    Debug.LogError("[DazRagdollBuilder] Error setting up bone — " + error);
                 }
             }
 
             // --- Phase 3: add DazRagdollBlender to root ---
-            DazRagdollBlender existing = root.GetComponent<DazRagdollBlender>();
-            if (existing == null)
-                Undo.AddComponent<DazRagdollBlender>(root);
+            try
+            {
+                DazRagdollBlender existing = root.GetComponent<DazRagdollBlender>();
+                if (existing == null)
+                    Undo.AddComponent<DazRagdollBlender>(root);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("[DazRagdollBuilder] Could not add DazRagdollBlender: " + ex.Message);
+                errors.Add("DazRagdollBlender: " + ex.Message);
+            }
 
             Undo.CollapseUndoOperations(undoGroup);
 
             // --- Report ---
-            string report = $"Ragdoll setup complete.\n\nBones configured: {found.Count} / {k_Bones.Length}";
+            string report = $"Ragdoll setup complete.\n\nBones configured: {found.Count - errors.Count} / {k_Bones.Length}";
+
             if (missing.Count > 0)
-                report += $"\n\nMissing (skipped):\n• " + string.Join("\n• ", missing);
+                report += $"\n\nMissing (skipped):\n\u2022 " + string.Join("\n\u2022 ", missing);
+
+            if (errors.Count > 0)
+                report += $"\n\nErrors ({errors.Count}):\n\u2022 " + string.Join("\n\u2022 ", errors);
 
             EditorUtility.DisplayDialog("Setup Ragdoll", report, "OK");
         }
@@ -196,14 +218,13 @@ namespace Daz3D
                 float   height   = localDir.magnitude;
                 float   radius   = Mathf.Min(height * radiusFactor, height * 0.48f);
 
-                // Dominant axis
                 float ax = Mathf.Abs(localDir.x);
                 float ay = Mathf.Abs(localDir.y);
                 float az = Mathf.Abs(localDir.z);
 
                 if (ay >= ax && ay >= az)       col.direction = 1;  // Y
                 else if (ax >= ay && ax >= az)  col.direction = 0;  // X
-                else                             col.direction = 2;  // Z
+                else                            col.direction = 2;  // Z
 
                 col.height = height;
                 col.radius = radius;
@@ -223,9 +244,7 @@ namespace Daz3D
         {
             T comp = bone.GetComponent<T>();
             if (comp != null)
-            {
                 Undo.DestroyObjectImmediate(comp);
-            }
         }
 
         private static Transform FirstChildOrNull(Transform t)
