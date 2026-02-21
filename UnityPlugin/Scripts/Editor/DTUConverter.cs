@@ -1173,26 +1173,10 @@ namespace Daz3D
 						//glossinessValue = glossiness.Float * glossyLayeredWeight.Float;
 						break;
 					case DTUBaseMixing.Weighted:
-						// Daz Reference Information:
-						// "The Weighted Base Mixing option takes the values of both the Diffuse and Glossy weights and normalizes them, giving the percentages weight as to how much each layer gets. "
-						//
-						// Based on the reference information, this sounds similar to a conservation of light energy equation.
-						// For HDRP shaders: if "conserve specular energy" is turned on in the shader, then diffuse is already weighted down based on specular color.
-						// Pass the GlossyWeight into the HDRP Shader's specular port and it will automatically perform the "Weighted" BaseMixing operation for us.
-
-						// TODO: for HDRP shaders with "conserve specular energy" enabled, pass the Daz "Glossy Weight" as an intensity value into the SpecularColor port.
-						// TODO: for other shaders without "conserve specular energy" enabled, subtract Glossy Weight from Diffuse intensity, and weight down Specular Lighting as appropriate.
-
-						// ??? Comments and code block below don't make sense to me, based on the above reference information from Daz.
-						//??//if glossy weight > 0 in iray it applies a glossy layer on top, you now need to pay attention to the glossyColor
-						//??// we're not going to render the same way
-						//glossyRoughnessValue = 1f - glossyWeight.Float;
-						//if(glossyWeight.TextureExists())
-						//{
-						//	//this is an inverted map where 1 is smooth and 0 is rough
-						//	glossinessMap = ImportTextureFromPath(glossyWeight.Texture,textureDir,record,false,true);
-						//	glossinessValue = glossyWeight.Float;
-						//}
+						// Daz "Weighted" BaseMixing normalises Diffuse and Glossy weights against each other.
+						// Glossy weight is applied to _SpecularColor below (see isSpecular block).
+						// HDRP handles energy conservation internally; other pipelines receive a matching
+						// diffuse dim there too.
 						break;
 				}
 
@@ -1221,10 +1205,25 @@ namespace Daz3D
 
 				if(isSpecular)
 				{
-					mat.SetColor("_SpecularColor",glossySpecular.Color);
+					Color specColor;
+					if (baseMixing == DTUBaseMixing.Weighted)
+					{
+						// Weighted BaseMixing: scale specular by glossyWeight to conserve energy.
+						// For HDRP the shader already has "conserve specular energy" enabled so only
+						// the specular needs to be weighted. For other pipelines also dim the diffuse.
+						specColor = glossyColor.Color * glossyWeight.Float;
+						if (!RenderPipelineHelper.IsHDRP)
+						{
+							Color dimmedDiffuse = diffuseColor.Color * (1f - glossyWeight.Float * 0.5f);
+							mat.SetColor("_Diffuse", dimmedDiffuse);
+						}
+					}
+					else
+					{
+						specColor = glossySpecular.Color;
+					}
+					mat.SetColor("_SpecularColor", specColor);
 					mat.SetTexture("_SpecularColorMap",ImportTextureFromPath(glossySpecular.Texture, textureDir, record));
-					//mat.SetFloat("_Glossiness",glossinessValue);
-					//mat.SetTexture("_GlossinessMap",glossinessMap);
 				}
 
 				//this only applies for some material types such as see thru mats
@@ -1277,7 +1276,24 @@ namespace Daz3D
 				}
 
 				//TODO: support displacement maps and tessellation
-				//TODO: support alternate uv sets (this can be done easier in code then in the shader though)
+
+				// Alternate UV sets: pass the UV channel index to the shader via _UVSet.
+				// Shaders that support TEXCOORD1+ can use this to read from the correct UV channel.
+				// Non-zero sets emit a warning when the shader lacks the property.
+				if (uvSet.Exists && \!string.IsNullOrEmpty(uvSet.Value.AsString))
+				{
+					string uvStr = uvSet.Value.AsString.ToLower().Trim();
+					int uvIndex = 0;
+					if (uvStr == "uv set 2" || uvStr == "1") uvIndex = 1;
+					else if (uvStr == "uv set 3" || uvStr == "2") uvIndex = 2;
+					if (uvIndex > 0)
+					{
+						if (mat.HasProperty("_UVSet"))
+							mat.SetFloat("_UVSet", uvIndex);
+						else
+							Debug.LogWarning($"[DTUConverter] Mat '{dtuMaterial.MaterialName}' uses UV Set {uvIndex + 1} but the current shader does not expose _UVSet.");
+					}
+				}
 			}
 
 
@@ -1813,9 +1829,6 @@ namespace Daz3D
 
 
 
-			//TODO: opacityColor defines the "opaque" value, in most cases I've seen it's white which is what we'd expect with most maps, but we need to add support for this at some point
-
-
 			//TODO: we handle this nearly the same as iray uber, these switches should be combined instead and have the same logic applied
 
 			if(isSclera)
@@ -1931,6 +1944,18 @@ namespace Daz3D
 				mat.SetTexture("_AmbientOcclusionMap",ImportTextureFromPath(occlusion.Texture, textureDir, record,false,true));
 			}
 
+
+			// OpacityColor defines the "opaque" value in OmUberSurface materials. White (the default)
+			// means the alpha map is used as-is. Any other color reduces the effective max opacity.
+			if (opacityColor.Exists && mat.HasProperty("_Alpha"))
+			{
+				Color oc = opacityColor.Color;
+				if (oc != Color.white)
+				{
+					float tint = 0.2126f * oc.r + 0.7152f * oc.g + 0.0722f * oc.b; // perceptual luminance
+					mat.SetFloat("_Alpha", mat.GetFloat("_Alpha") * tint);
+				}
+			}
 
 			bool hasDualLobeSpecularWeight = false;
 			bool hasDualLobeSpecularReflectivity = false;
