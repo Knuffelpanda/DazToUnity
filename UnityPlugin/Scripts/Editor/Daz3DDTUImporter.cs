@@ -976,8 +976,7 @@ namespace Daz3D
                 || valueLower.Contains("beard") || assetNameLower.EndsWith("beard") || matNameLower.Contains("beard")
             )
             {
-                // TODO: implement dForce hair support
-                Debug.LogWarning("Import Warning: ImportDforceToPrefab() dForce hair is currently not supported: " + parent.name);
+                SetupHairPhysics(parent, skinned, dforceMat);
                 return;
             }
 
@@ -1087,6 +1086,32 @@ namespace Daz3D
             }
         }
 
+
+        private static void SetupHairPhysics(GameObject parent, SkinnedMeshRenderer skinned, DForceMaterial dforceMat)
+        {
+            if (skinned == null)
+            {
+                Debug.LogWarning("[DazHairPhysics] Hair mesh has no SkinnedMeshRenderer: " + parent.name);
+                return;
+            }
+
+            DazHairPhysics hair = parent.GetComponent<DazHairPhysics>();
+            if (hair == null)
+                hair = parent.AddComponent<DazHairPhysics>();
+
+            // Map dForce material params to spring simulation params.
+            // Bend Stiffness 0-1 → spring stiffness 0.02-0.4
+            float bendStiffness    = dforceMat.dtuMaterial.Get("Bend Stiffness").Float;
+            float dampingVal       = dforceMat.dtuMaterial.Get("Damping").Float;
+            float dynamicsStrength = dforceMat.dtuMaterial.Get("Dynamics Strength").Float;
+
+            hair.stiffness        = Mathf.Lerp(0.02f, 0.4f, Mathf.Clamp01(bendStiffness));
+            hair.damping          = Mathf.Clamp01(dampingVal);
+            hair.dynamicsStrength = Mathf.Clamp01(dynamicsStrength);
+
+            Debug.Log($"[DazHairPhysics] Configured hair physics on '{parent.name}': " +
+                      $"stiffness={hair.stiffness:F2}, damping={hair.damping:F2}, dynamics={hair.dynamicsStrength:F2}");
+        }
 
         private static void DescribeHumanJointsForFigure(ref HumanDescription description, DazFigurePlatform figure)
         {
