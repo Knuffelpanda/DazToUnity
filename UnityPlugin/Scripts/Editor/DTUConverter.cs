@@ -631,7 +631,8 @@ namespace Daz3D
 			var makeupWeight = dtuMaterial.Get("Makeup Weight", new DTUValue(0.0f));
 			var makeupColor = dtuMaterial.Get("Makeup Base Color", new DTUValue(1.0f));
 			var makeupRoughness = dtuMaterial.Get("Makeup Roughness Mult", new DTUValue(1.0f));
-			var makeupMetalicity = dtuMaterial.Get("Makeup Metallicity Enable", new DTUValue(0.0f));
+			var makeupMetalicity   = dtuMaterial.Get("Makeup Metallicity Enable", new DTUValue(0.0f));
+			var makeupMetallicity  = dtuMaterial.Get("Makeup Metallicity", new DTUValue(0.0f));
 
 			// Per Iray Shader Documentation: http://docs.daz3d.com/doku.php/public/software/dazstudio/4/referenceguide/interface/panes/surfaces/shaders/iray_uber_shader/shader_general_concepts/start#glossy_anisotropy_rotations
 			// Glossy Anisotropy Rotations: This controls the rotation of the anisotropic effects.
@@ -1262,7 +1263,6 @@ namespace Daz3D
                 }
 
 			// DB 2023-June-17: PBRSkin Makeup Support for HDRP and URP
-				// TODO: Implement Makeup Metallicity Support
 				if (dtuMaterial.MaterialType == "PBRSkin")
 				{
 					mat.SetFloat("_MakeupEnable", makeupEnable.Float);
@@ -1272,7 +1272,8 @@ namespace Daz3D
 					mat.SetTexture("_MakeupBaseMap",ImportTextureFromPath(makeupColor.Texture, textureDir, record));
 					mat.SetFloat("_MakeupRoughnessMultiplierValue", makeupRoughness.Float);
 					mat.SetTexture("_MakeupRoughnessMultiplierMap",ImportTextureFromPath(makeupRoughness.Texture, textureDir, record, false, true));
-					//mat.setFloat("_MakeupMetallicity", makeupMetallicity.Float);
+					mat.SetFloat("_MakeupMetallicityEnable", makeupMetalicity.Float);
+					mat.SetFloat("_MakeupMetallicity", makeupMetallicity.Float);
 				}
 
 				//TODO: support displacement maps and tessellation

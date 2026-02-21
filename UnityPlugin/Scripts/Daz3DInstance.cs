@@ -4,12 +4,12 @@ using UnityEngine;
 namespace Daz3D
 {
     /// <summary>
-    /// A component to attach to the scene instance of the prefab created by the DTUImporter
-    /// allows the instance to be "refreshed" with the newer prefab, between successive import sessions
-    /// If the scene containing the instance is open and the fbx is fresher than the scene, then 
-    /// a instance of the new prefab will replace the old
-    /// TODO add a switch in the DTU JSON to override this behavior
-    /// </summary>
+    /// A component to attach to the scene instance of the prefab created by the DTUImporter.
+    /// Allows the instance to be "refreshed" with a newer prefab between successive import sessions.
+    /// If the scene containing the instance is open and the FBX is fresher than the scene,
+    /// a new instance of the prefab will replace the old one.
+    /// Override this behavior per-instance via the <see cref="ReplaceOnImport"/> field.
+    ///</summary>
     public class Daz3DInstance : MonoBehaviour
     {
         /// <summary>

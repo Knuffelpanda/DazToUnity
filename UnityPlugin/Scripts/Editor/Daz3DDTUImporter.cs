@@ -982,9 +982,27 @@ namespace Daz3D
 
             if (skinned == null)
             {
-                // TODO: check if regular mesh renderer and upgrade if appropriate
-                Debug.LogWarning("Import Warning: ImportDforceToPrefab() gameojbect unsupported: it does not have a skinned mesh renderer: " + parent.name);
-                return;
+                // If a static MeshRenderer is present, upgrade it to SkinnedMeshRenderer
+                // so the Cloth component can be attached below.
+                MeshRenderer mr = parent.GetComponent<MeshRenderer>();
+                MeshFilter   mf = parent.GetComponent<MeshFilter>();
+                if (mr != null && mf != null && mf.sharedMesh != null)
+                {
+                    Material[] mats = mr.sharedMaterials;
+                    Mesh       mesh = mf.sharedMesh;
+                    Undo.DestroyObjectImmediate(mr);
+                    Undo.DestroyObjectImmediate(mf);
+                    skinned                    = Undo.AddComponent<SkinnedMeshRenderer>(parent);
+                    skinned.sharedMesh         = mesh;
+                    skinned.sharedMaterials    = mats;
+                    skinned.updateWhenOffscreen = true;
+                    Debug.Log("Import Info: ImportDforceToPrefab() upgraded MeshRenderer to SkinnedMeshRenderer: " + parent.name);
+                }
+                else
+                {
+                    Debug.LogWarning("Import Warning: ImportDforceToPrefab() gameobject unsupported: no SkinnedMeshRenderer or upgradeable MeshRenderer found: " + parent.name);
+                    return;
+                }
             }
             else if (skinned.sharedMesh.vertexCount > 40000)
             {
