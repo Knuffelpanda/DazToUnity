@@ -121,6 +121,11 @@ namespace Daz3D
 		public bool UseSharedTextureDir;
 		public bool UseSharedMaterialDir;
 
+		public bool AutoGenerateLOD;
+		public bool AutoSetupRagdoll;
+		public bool AutoGenerateMorphClips;
+		public bool AutoEnableHairPhysics;
+
 		//DiffusionProfile is sealed in older versions of HDRP, will need to use reflection if we want access to it
 		//public UnityEngine.Rendering.HighDefinition.DiffusionProfile diffusionProfile = null;
 
@@ -2908,6 +2913,10 @@ namespace Daz3D
 			dtu.ProductComponentName = root["Product Component Name"].Value;
 			dtu.FBXFile = root["FBX File"].Value;
 			dtu.ImportFolder = root["Import Folder"].Value;
+			dtu.AutoGenerateLOD = root["Auto Generate LOD"].AsBool;
+			dtu.AutoSetupRagdoll = root["Auto Setup Ragdoll"].AsBool;
+			dtu.AutoGenerateMorphClips = root["Auto Generate Morph Clips"].AsBool;
+			dtu.AutoEnableHairPhysics = root["Auto Enable Hair Physics"].AsBool;
 			dtu.Materials = new List<DTUMaterial>();
 
 			var materials = root["Materials"].AsArray;

@@ -44,6 +44,10 @@ DzUnityAction::DzUnityAction() :
 	m_nNonInteractiveMode = 0;
 	m_sAssetType = QString("SkeletalMesh");
 	m_bExportGLTF = false;
+	m_bAutoGenerateLOD = false;
+	m_bAutoSetupRagdoll = false;
+	m_bAutoGenerateMorphClips = false;
+	m_bAutoEnableHairPhysics = false;
 	//Setup Icon
 	QString iconName = "icon";
 	QPixmap basePixmap = QPixmap::fromImage(getEmbeddedImage(iconName.toLatin1()));
@@ -204,6 +208,10 @@ void DzUnityAction::executeAction()
 		{
 			m_bInstallUnityFiles = unityDialog->installUnityFilesCheckBox->isChecked();
 			m_bExportGLTF = unityDialog->exportGltfCheckBox->isChecked();
+			m_bAutoGenerateLOD = unityDialog->autoGenerateLODCheckBox->isChecked();
+			m_bAutoSetupRagdoll = unityDialog->autoSetupRagdollCheckBox->isChecked();
+			m_bAutoGenerateMorphClips = unityDialog->autoGenerateMorphClipsCheckBox->isChecked();
+			m_bAutoEnableHairPhysics = unityDialog->autoEnableHairPhysicsCheckBox->isChecked();
 		}
 		// custom animation filename correction for Unity
 		if (m_sAssetType == "Animation")
@@ -305,6 +313,11 @@ void DzUnityAction::writeConfiguration()
 	writer.startObject(true);
 
 	writeDTUHeader(writer);
+
+	writer.addMember("Auto Generate LOD", m_bAutoGenerateLOD);
+	writer.addMember("Auto Setup Ragdoll", m_bAutoSetupRagdoll);
+	writer.addMember("Auto Generate Morph Clips", m_bAutoGenerateMorphClips);
+	writer.addMember("Auto Enable Hair Physics", m_bAutoEnableHairPhysics);
 
 	if (m_sAssetType.toLower().contains("mesh") || m_sAssetType == "Animation")
 	{

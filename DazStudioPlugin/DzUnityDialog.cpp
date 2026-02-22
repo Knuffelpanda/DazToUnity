@@ -53,6 +53,10 @@ DzUnityDialog::DzUnityDialog(QWidget* parent) :
 	 assetsFolderButton = nullptr;
 	 installUnityFilesCheckBox = nullptr;
 	 exportGltfCheckBox = nullptr;
+	 autoGenerateLODCheckBox = nullptr;
+	 autoSetupRagdollCheckBox = nullptr;
+	 autoGenerateMorphClipsCheckBox = nullptr;
+	 autoEnableHairPhysicsCheckBox = nullptr;
 
 	 settings = new QSettings("Daz 3D", "DazToUnity");
 
@@ -124,6 +128,16 @@ DzUnityDialog::DzUnityDialog(QWidget* parent) :
 	 exportGltfCheckBox = new QCheckBox("", this);
 	 exportGltfCheckBox->setToolTip(tr("Also export a GLB (binary glTF 2.0) file alongside the FBX."));
 
+	 // Unity auto-setup options
+	 autoGenerateLODCheckBox = new QCheckBox("", this);
+	 autoGenerateLODCheckBox->setToolTip(tr("Automatically generate LOD levels (LOD0/1/2/3) after import in Unity."));
+	 autoSetupRagdollCheckBox = new QCheckBox("", this);
+	 autoSetupRagdollCheckBox->setToolTip(tr("Automatically set up a ragdoll with physics joints after import in Unity."));
+	 autoGenerateMorphClipsCheckBox = new QCheckBox("", this);
+	 autoGenerateMorphClipsCheckBox->setToolTip(tr("Automatically generate one AnimationClip per morph/blend shape after import in Unity."));
+	 autoEnableHairPhysicsCheckBox = new QCheckBox("", this);
+	 autoEnableHairPhysicsCheckBox->setToolTip(tr("Automatically enable dForce hair spring physics on hair meshes after import in Unity."));
+
 	// Disable Experimental Options Checkbox
 	m_enableExperimentalOptionsCheckBox->setEnabled(false);
 	m_enableExperimentalOptionsCheckBox->setToolTip(tr("No experimental options in this version."));
@@ -133,6 +147,10 @@ DzUnityDialog::DzUnityDialog(QWidget* parent) :
 	 mainLayout->insertRow(1, "Unity Assets Folder", assetsFolderLayout);
 	 mainLayout->insertRow(2, installOrOverwriteUnityFilesLabel, installUnityFilesCheckBox);
 	 mainLayout->insertRow(3, tr("Export glTF (.glb)"), exportGltfCheckBox);
+	 mainLayout->insertRow(4, tr("Auto Generate LOD"), autoGenerateLODCheckBox);
+	 mainLayout->insertRow(5, tr("Auto Setup Ragdoll"), autoSetupRagdollCheckBox);
+	 mainLayout->insertRow(6, tr("Auto Morph Clips"), autoGenerateMorphClipsCheckBox);
+	 mainLayout->insertRow(7, tr("Auto Hair Physics"), autoEnableHairPhysicsCheckBox);
 
 	 // Rename Open Intermediate Folder button
 	 m_OpenIntermediateFolderButton->setText(tr("Open Unity Project Folder"));
@@ -666,6 +684,10 @@ void DzUnityDialog::setDisabled(bool bDisabled)
 	assetsFolderEdit->setDisabled(bDisabled);
 	installUnityFilesCheckBox->setDisabled(bDisabled);
 	exportGltfCheckBox->setDisabled(bDisabled);
+	autoGenerateLODCheckBox->setDisabled(bDisabled);
+	autoSetupRagdollCheckBox->setDisabled(bDisabled);
+	autoGenerateMorphClipsCheckBox->setDisabled(bDisabled);
+	autoEnableHairPhysicsCheckBox->setDisabled(bDisabled);
 
 }
 

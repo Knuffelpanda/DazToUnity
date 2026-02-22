@@ -266,6 +266,7 @@ namespace Daz3D
             Daz3DBridge.Progress = .9f;
                 yield return new WaitForEndOfFrame();
 
+            EnableDForceSupport = dtu.AutoEnableHairPhysics;
             if (GenerateUnityPrefab)
                 GeneratePrefabFromFBX(fbxPath, platform, dtu);
 
@@ -824,9 +825,16 @@ namespace Daz3D
             {
                 //highlight/select the object in the scene view
                 Selection.activeGameObject = resultingInstance;
+
+                if (dtu.AutoGenerateLOD)
+                    DazLODGenerator.GenerateLODGroup();
+                if (dtu.AutoSetupRagdoll)
+                    DazRagdollBuilder.SetupRagdoll();
+                if (dtu.AutoGenerateMorphClips)
+                    DazMorphAnimationGenerator.GenerateMorphClips();
             }
             else if (Daz3DBridge.BatchConversionMode == 1)
-            { 
+            {
                 DestroyImmediate(resultingInstance);
             }
 

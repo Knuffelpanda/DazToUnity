@@ -53,6 +53,11 @@ protected:
 
 	QCheckBox* exportGltfCheckBox;
 
+	QCheckBox* autoGenerateLODCheckBox;
+	QCheckBox* autoSetupRagdollCheckBox;
+	QCheckBox* autoGenerateMorphClipsCheckBox;
+	QCheckBox* autoEnableHairPhysicsCheckBox;
+
 	bool IsValidProjectFolder(QString sProjectFolderPath);
 	bool installUpmPackage(const QString& sProjectFolder);
 	virtual void setDisabled(bool) override;
