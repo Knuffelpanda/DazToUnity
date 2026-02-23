@@ -80,14 +80,12 @@ DzUnityDialog::DzUnityDialog(QWidget* parent) :
 <img src=\":/DazBridgeUnity/banner.jpg\" width=\"370\" height=\"95\" align=\"center\" hspace=\"0\" vspace=\"0\">\
 <table width=100% cellpadding=8 cellspacing=2 style=\"vertical-align:middle; font-size:x-large; font-weight:bold; background-color:#FFAA00;foreground-color:#FFFFFF\" align=center>\
   <tr>\
-    <td width=33% style=\"text-align:center; background-color:#282f41;\"><div align=center><a href=\"https://www.daz3d.com/unity-bridge#faq\">FAQ</a></div></td>\
-    <td width=33% style=\"text-align:center; background-color:#282f41;\"><div align=center><a href=\"https://youtu.be/_Em9sNdw1Dw\">Installation Video</a></td>\
-    <td width=33% style=\"text-align:center; background-color:#282f41;\"><div align=center><a href=\"https://youtu.be/B_szQcX_i3I\">Tutorial Video</a></td>\
+    <td width=50% style=\"text-align:center; background-color:#282f41;\"><div align=center><a href=\"https://www.daz3d.com/unity-bridge#faq\">FAQ</a></div></td>\
+    <td width=50% style=\"text-align:center; background-color:#282f41;\"><div align=center><a href=\"file:///") + sPdfPath + tr("\">PDF</a></td>\
   </tr>\
   <tr>\
-    <td width=33% style=\"text-align:center; background-color:#282f41;\"><div align=center><a href=\"file:///") + sPdfPath + tr("\">PDF</a></td>\
-    <td width=33% style=\"text-align:center; background-color:#282f41;\"><div align=center><a href=\"https://www.daz3d.com/forums/categories/unity-discussion\">Forums</a></td>\
-    <td width=33% style=\"text-align:center; background-color:#282f41;\"><div align=center><a href=\"https://github.com/daz3d/DazToUnity/issues\">Report Bug</a></td>\
+    <td width=50% style=\"text-align:center; background-color:#282f41;\"><div align=center><a href=\"https://www.daz3d.com/forums/categories/unity-discussion\">Forums</a></td>\
+    <td width=50% style=\"text-align:center; background-color:#282f41;\"><div align=center><a href=\"https://github.com/Knuffelpanda/DazToUnity/issues\">Report Bug</a></td>\
   </tr>\
 </table>\
 </div>\
