@@ -537,7 +537,7 @@ namespace Daz3D
 			| Thin Walled                        | X | X | X | B    | On for thin things like bubbles, hollow, etc, off for thick things like fluids and solids |
 			| Emission Color                     | X | X | X | CT   | Classic emission, adds to the final composite color as a glow |
 			| Cutout Opacity                     | X | X | X | DT   | "Opacity without Refraction" should not be used for transparent/translucent things, just things that are not there like classic cutouts, have found it's abused though and can treat like classic alpha handling |
-			| Displacement Strength              | X | X | X | T    | Applies a classic displacement map (not supporetd by us yet) |
+			| Displacement Strength              | X | X | X | T    | Displacement texture passed to any shader that exposes _DisplacementMap/_DisplacementStrength/_DisplacementMin/_DisplacementMax. Full tessellation requires a tessellation-capable shader variant. |
 			| Horizontal Tile                    | X | X | X | D    | Defaults 1, uv tiling |
 			| Horizontal Offset                  | X | X | X | D    | Defaults 0, uv offset |
 			| Vertical Tile                      | X | X | X | D    | Defaults 1, uv tiling |
@@ -1275,8 +1275,6 @@ namespace Daz3D
 					mat.SetFloat("_MakeupMetallicity", makeupMetallicity.Float);
 				}
 
-				//TODO: support displacement maps and tessellation
-
 				// Alternate UV sets: pass the UV channel index to the shader via _UVSet.
 				// Shaders that support TEXCOORD1+ can use this to read from the correct UV channel.
 				// Non-zero sets emit a warning when the shader lacks the property.
@@ -1296,8 +1294,10 @@ namespace Daz3D
 				}
 			}
 
-			// Displacement map: pass data to any shader that exposes these properties.
-			// Full per-vertex displacement requires a tessellation-capable shader variant.
+			// Displacement map: transfers texture and strength/min/max values to any shader that
+			// exposes _DisplacementMap, _DisplacementStrength, _DisplacementMin, and _DisplacementMax
+			// (e.g. HDRP LitTessellation). Full per-vertex displacement additionally requires a
+			// tessellation-capable shader variant.
 			if (displacementStrength.TextureExists() || displacementStrength.Float != 0f)
 			{
 				if (mat.HasProperty("_DisplacementMap"))
